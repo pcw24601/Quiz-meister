@@ -1,0 +1,159 @@
+title: "General Knowledge Quiz Night"
+
+rounds:
+  - name: "Geography"
+    questions:
+      - type: multiple_choice
+        text: "What is the capital of Australia?"
+        options:
+          - Sydney
+          - Melbourne
+          - Canberra
+          - Brisbane
+        correct: 2
+        time: 30
+        points: 1
+
+      - type: multiple_choice
+        text: "Which country has the largest land area in the world?"
+        options:
+          - Canada
+          - Russia
+          - China
+          - United States
+        correct: 1
+        time: 30
+        points: 1
+
+      - type: select_many
+        text: "Which of the following are countries in Scandinavia?"
+        options:
+          - Norway
+          - Finland
+          - Sweden
+          - Denmark
+          - Iceland
+        correct: [0, 2, 3]
+        time: 40
+        points: 2
+
+      - type: order
+        text: "Put these rivers in order from longest to shortest"
+        items:
+          - Nile
+          - Amazon
+          - Yangtze
+          - Mississippi
+        time: 45
+        points: 2
+
+      - type: numeric
+        text: "How many countries are there in Africa?"
+        answer: 54
+        tolerance: 3
+        time: 30
+        points: 1
+
+  - name: "Science & Nature"
+    questions:
+      - type: multiple_choice
+        text: "What is the chemical symbol for gold?"
+        options:
+          - Ag
+          - Au
+          - Fe
+          - Gd
+        correct: 1
+        time: 20
+        points: 1
+
+      - type: multiple_choice
+        text: "How many bones are in the adult human body?"
+        options:
+          - 196
+          - 206
+          - 216
+          - 226
+        correct: 1
+        time: 25
+        points: 1
+
+      - type: numeric
+        text: "What is the speed of light in km/s? (nearest thousand)"
+        answer: 300000
+        tolerance: 5000
+        time: 30
+        points: 2
+
+      - type: select_many
+        text: "Which of these are noble gases?"
+        options:
+          - Helium
+          - Nitrogen
+          - Argon
+          - Oxygen
+          - Neon
+        correct: [0, 2, 4]
+        time: 35
+        points: 2
+
+      - type: order
+        text: "Order these planets from closest to furthest from the Sun"
+        items:
+          - Mercury
+          - Venus
+          - Earth
+          - Mars
+        time: 30
+        points: 2
+
+  - name: "Pop Culture"
+    questions:
+      - type: multiple_choice
+        text: "Which film won the first Academy Award for Best Picture?"
+        options:
+          - "Wings"
+          - "All Quiet on the Western Front"
+          - "Sunrise"
+          - "The Jazz Singer"
+        correct: 0
+        time: 30
+        points: 1
+
+      - type: multiple_choice
+        text: "Who painted the Mona Lisa?"
+        options:
+          - Michelangelo
+          - Raphael
+          - Leonardo da Vinci
+          - Caravaggio
+        correct: 2
+        time: 20
+        points: 1
+
+      - type: numeric
+        text: "In what year was the first iPhone released?"
+        answer: 2007
+        tolerance: 0
+        time: 20
+        points: 1
+        tiebreaker: false
+
+      - type: multiple_choice
+        text: "Who wrote 'Pride and Prejudice'?"
+        options:
+          - Charlotte Bronte
+          - Jane Austen
+          - Mary Shelley
+          - Emily Bronte
+        correct: 1
+        time: 20
+        points: 1
+
+      - type: numeric
+        text: "How many Harry Potter books are in the main series?"
+        answer: 7
+        tolerance: 0
+        time: 15
+        points: 1
+        tiebreaker: true

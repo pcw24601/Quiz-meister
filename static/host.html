@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz-Meister — Host</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/host.css">
+</head>
+<body class="host-body">
+
+<!-- Setup Screen -->
+<div id="screen-setup" class="screen active">
+  <div class="setup-container">
+    <div class="logo">
+      <span class="logo-icon">&#9670;</span>
+      <h1>Quiz-Meister</h1>
+      <p class="tagline">Host Control</p>
+    </div>
+    <div class="card">
+      <h2>New Quiz Session</h2>
+      <div class="form-group">
+        <label for="quiz-select">Select Quiz File</label>
+        <select id="quiz-select">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div id="quiz-preview" class="quiz-preview hidden"></div>
+      <button class="btn btn-primary btn-lg" id="btn-create-session">Start Session</button>
+      <div class="divider">or resume</div>
+      <div class="form-group">
+        <label for="resume-session-id">Session ID</label>
+        <input type="text" id="resume-session-id" placeholder="Paste session ID...">
+      </div>
+      <div class="form-group">
+        <label for="resume-secret">Host Secret</label>
+        <input type="text" id="resume-secret" placeholder="Paste host secret...">
+      </div>
+      <button class="btn btn-secondary" id="btn-resume-session">Resume Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Host Control Screen -->
+<div id="screen-host" class="screen">
+  <div class="host-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="session-info">
+        <div class="session-title" id="sidebar-quiz-title">Quiz</div>
+        <div class="session-meta">
+          <span id="sidebar-round-name">Round 1</span>
+          <span class="dot">·</span>
+          <span id="sidebar-team-count">0 teams</span>
+        </div>
+        <div class="session-id-display">
+          <span class="label">Session ID</span>
+          <code id="sidebar-session-id"></code>
+        </div>
+      </div>
+
+      <div class="qr-section">
+        <div id="qr-code-container"></div>
+        <div class="join-url" id="join-url-display"></div>
+      </div>
+
+      <nav class="nav-actions">
+        <button class="nav-btn" id="btn-show-display" title="Open big screen in new tab">
+          &#9654; Open Display
+        </button>
+        <button class="nav-btn" id="btn-copy-join-link" title="Copy player join link">
+          &#128279; Copy Join Link
+        </button>
+      </nav>
+
+      <div class="team-list-section">
+        <h3>Teams <span id="team-count-badge" class="badge">0</span></h3>
+        <div id="team-list" class="team-list"></div>
+      </div>
+    </aside>
+
+    <!-- Main Control Area -->
+    <main class="control-main">
+      <div class="state-banner" id="state-banner">
+        <span id="state-label">Lobby</span>
+      </div>
+
+      <!-- Lobby Panel -->
+      <div id="panel-lobby" class="panel active">
+        <div class="panel-center">
+          <div class="waiting-animation">
+            <div class="pulse-ring"></div>
+            <div class="pulse-dot"></div>
+          </div>
+          <h2>Waiting for players</h2>
+          <p id="lobby-round-info" class="muted">Round 1 · 0 questions</p>
+          <button class="btn btn-primary btn-xl" id="btn-start-first-question">
+            Start Round
+          </button>
+        </div>
+      </div>
+
+      <!-- Question Panel -->
+      <div id="panel-question" class="panel">
+        <div class="question-header">
+          <div class="q-meta">
+            <span id="q-round-label" class="badge-round">Round 1</span>
+            <span id="q-num-label" class="muted">Q 1/10</span>
+            <span id="q-type-label" class="badge-type">Multiple Choice</span>
+            <span id="q-tiebreaker-label" class="badge-tie hidden">TIEBREAKER</span>
+          </div>
+          <div class="timer-display" id="host-timer">
+            <span id="host-timer-value">30</span>
+            <span class="timer-unit">s</span>
+          </div>
+        </div>
+
+        <div class="question-text" id="host-question-text"></div>
+        <div id="host-question-image" class="question-image hidden">
+          <img id="host-question-img" src="" alt="Question image">
+        </div>
+
+        <div id="host-options" class="options-list"></div>
+
+        <div class="answer-progress">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="answer-progress-bar"></div>
+          </div>
+          <span id="answer-progress-label" class="muted">0 / 0 answered</span>
+        </div>
+
+        <div class="control-buttons">
+          <button class="btn btn-danger" id="btn-reveal-now">Reveal Answer Now</button>
+        </div>
+      </div>
+
+      <!-- Answer Reveal Panel -->
+      <div id="panel-reveal" class="panel">
+        <div class="reveal-header">
+          <h2>Answer Revealed</h2>
+          <div id="reveal-question-text" class="question-text"></div>
+        </div>
+
+        <div id="reveal-correct-answer" class="correct-answer-display"></div>
+
+        <div class="answers-table-wrap">
+          <table class="answers-table" id="answers-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Answer</th>
+                <th>Score</th>
+                <th>Override</th>
+              </tr>
+            </thead>
+            <tbody id="answers-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="control-buttons">
+          <button class="btn btn-secondary" id="btn-show-leaderboard">Show Leaderboard</button>
+          <button class="btn btn-primary" id="btn-next-question">Next Question</button>
+        </div>
+      </div>
+
+      <!-- Leaderboard Panel -->
+      <div id="panel-leaderboard" class="panel">
+        <h2>Leaderboard</h2>
+        <div id="host-leaderboard" class="leaderboard-list"></div>
+        <div class="control-buttons">
+          <button class="btn btn-primary" id="btn-next-round">Continue</button>
+        </div>
+      </div>
+
+      <!-- Ended Panel -->
+      <div id="panel-ended" class="panel">
+        <div class="panel-center">
+          <div class="trophy">&#127942;</div>
+          <h2>Quiz Complete!</h2>
+          <div id="final-leaderboard" class="leaderboard-list"></div>
+          <button class="btn btn-secondary" id="btn-new-quiz">New Quiz</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Score Override Modal -->
+<div id="modal-override" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Override Score</h3>
+    <p id="modal-override-info"></p>
+    <div class="form-group">
+      <label>New Score</label>
+      <input type="number" id="modal-score-input" min="0" max="100" value="0">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" id="btn-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-modal-confirm">Apply</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/js/qrcode.min.js"></script>
+<script src="/static/js/host.js"></script>
+</body>
+</html>

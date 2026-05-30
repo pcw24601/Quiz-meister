@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz-Meister — Big Screen</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/display.css">
+</head>
+<body class="display-body">
+
+<!-- Splash / Connect Screen -->
+<div id="screen-connect" class="screen active">
+  <div class="splash-content">
+    <div class="logo-big">
+      <span class="logo-icon-big">&#9670;</span>
+      <h1>Quiz-Meister</h1>
+    </div>
+    <div class="connect-form card">
+      <label for="display-session-id">Session ID</label>
+      <input type="text" id="display-session-id" placeholder="Enter session ID...">
+      <button class="btn btn-primary btn-lg" id="btn-connect-display">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main Display -->
+<div id="screen-display" class="screen">
+
+  <!-- Lobby State -->
+  <div id="display-lobby" class="display-state active">
+    <div class="lobby-screen">
+      <div class="logo-top">
+        <span class="logo-icon">&#9670;</span>
+        <span id="display-quiz-title-lobby" class="quiz-title-text">Quiz Night</span>
+      </div>
+      <div class="join-info">
+        <div id="display-qr" class="display-qr"></div>
+        <div class="join-text">
+          <div class="scan-label">Scan to join</div>
+          <div id="display-join-url" class="display-join-url"></div>
+        </div>
+      </div>
+      <div class="team-grid" id="display-team-grid"></div>
+    </div>
+  </div>
+
+  <!-- Question State -->
+  <div id="display-question" class="display-state">
+    <div class="question-screen">
+      <div class="q-header">
+        <div class="q-header-left">
+          <span id="display-round-name" class="round-badge">Round 1</span>
+          <span id="display-q-num" class="q-num">Q1</span>
+        </div>
+        <div class="q-timer-wrap">
+          <svg class="timer-ring" viewBox="0 0 64 64">
+            <circle class="timer-ring-bg" cx="32" cy="32" r="28"/>
+            <circle class="timer-ring-fill" id="timer-ring-fill" cx="32" cy="32" r="28"
+              stroke-dasharray="175.9" stroke-dashoffset="0"/>
+          </svg>
+          <span id="display-timer" class="timer-number">30</span>
+        </div>
+      </div>
+
+      <div class="question-body">
+        <div id="display-question-image" class="display-question-image hidden">
+          <img id="display-question-img" src="" alt="">
+        </div>
+        <div id="display-question-text" class="display-question-text"></div>
+      </div>
+
+      <div id="display-options" class="display-options"></div>
+
+      <div class="answer-bar">
+        <div class="answer-bar-fill" id="display-answer-bar"></div>
+        <span id="display-answer-count" class="answer-count">0 answered</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Answer Reveal State -->
+  <div id="display-reveal" class="display-state">
+    <div class="reveal-screen">
+      <div class="reveal-title">The Answer</div>
+      <div id="display-reveal-question" class="reveal-question-text"></div>
+      <div id="display-reveal-answer" class="reveal-answer"></div>
+      <div id="display-reveal-options" class="reveal-options"></div>
+    </div>
+  </div>
+
+  <!-- Leaderboard State -->
+  <div id="display-leaderboard" class="display-state">
+    <div class="leaderboard-screen">
+      <h2 class="lb-title">&#127942; Leaderboard</h2>
+      <div id="display-lb-list" class="display-lb-list"></div>
+    </div>
+  </div>
+
+  <!-- Ended State -->
+  <div id="display-ended" class="display-state">
+    <div class="ended-screen">
+      <div class="fireworks-bg" id="fireworks-bg"></div>
+      <h2 class="ended-title">Quiz Complete!</h2>
+      <div id="display-final-lb" class="display-lb-list final"></div>
+    </div>
+  </div>
+
+  <!-- HUD overlay -->
+  <div class="display-hud">
+    <span id="hud-round" class="hud-item"></span>
+    <span id="hud-title" class="hud-item hud-title"></span>
+    <span id="hud-teams" class="hud-item"></span>
+  </div>
+</div>
+
+<script src="/static/js/qrcode.min.js"></script>
+<script src="/static/js/display.js"></script>
+</body>
+</html>
