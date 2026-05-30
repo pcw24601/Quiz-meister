@@ -8,7 +8,7 @@
 
 /* ── Join Screen ─────────────────────────────────────────────────────────────*/
 
-#screen-join {
+#screen-join.active {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,7 +41,7 @@
 
 /* ── Waiting Screen ──────────────────────────────────────────────────────────*/
 
-#screen-waiting {
+#screen-waiting.active {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,7 +96,7 @@
 
 /* ── Question Screen ─────────────────────────────────────────────────────────*/
 
-#screen-question {
+#screen-question.active {
   min-height: 100dvh;
   background: var(--neutral-50);
 }
@@ -425,7 +425,7 @@
 
 /* ── Reveal Screen ───────────────────────────────────────────────────────────*/
 
-#screen-reveal {
+#screen-reveal.active {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -482,7 +482,7 @@
 
 /* ── Leaderboard Screen ──────────────────────────────────────────────────────*/
 
-#screen-leaderboard {
+#screen-leaderboard.active {
   min-height: 100dvh;
   padding: var(--space-6);
   background: var(--neutral-50);
@@ -554,7 +554,7 @@
 
 /* ── Ended Screen ────────────────────────────────────────────────────────────*/
 
-#screen-ended {
+#screen-ended.active {
   min-height: 100dvh;
   padding: var(--space-6);
   display: flex;

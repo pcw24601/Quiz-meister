@@ -6,7 +6,7 @@
   overflow: hidden;
 }
 
-#screen-connect {
+#screen-connect.active {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,7 +14,7 @@
   background: linear-gradient(135deg, var(--neutral-950) 0%, var(--neutral-800) 100%);
 }
 
-#screen-display {
+#screen-display.active {
   height: 100vh;
   position: relative;
 }

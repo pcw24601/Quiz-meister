@@ -43,6 +43,7 @@ if __name__ == '__main__':
     os.environ['SUPABASE_ANON_KEY'] = supabase_key
 
     ip = get_local_ip()
+    os.environ['LOCAL_IP'] = ip
     port = int(os.environ.get('PORT', 8000))
 
     print(f"""

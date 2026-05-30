@@ -7,7 +7,7 @@
 
 /* ── Setup Screen ─────────────────────────────────────────────────────────────*/
 
-#screen-setup {
+#screen-setup.active {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,7 +36,7 @@
 
 /* ── Host Layout ──────────────────────────────────────────────────────────────*/
 
-#screen-host {
+#screen-host.active {
   display: flex;
   height: 100vh;
   overflow: hidden;

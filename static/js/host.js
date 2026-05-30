@@ -75,8 +75,12 @@ document.getElementById('quiz-select').addEventListener('change', e => {
 });
 
 document.getElementById('btn-create-session').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-create-session');
+  if (btn.disabled) return;
   const file = document.getElementById('quiz-select').value;
   if (!file) { showToast('Select a quiz file first'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
   try {
     const res = await fetch('/api/sessions', {
       method: 'POST',
@@ -86,6 +90,8 @@ document.getElementById('btn-create-session').addEventListener('click', async ()
     if (!res.ok) {
       const err = await res.json();
       showToast(err.detail || 'Error creating session');
+      btn.disabled = false;
+      btn.textContent = 'Start Session';
       return;
     }
     const data = await res.json();
@@ -95,6 +101,8 @@ document.getElementById('btn-create-session').addEventListener('click', async ()
     enterHostScreen();
   } catch(e) {
     showToast('Failed to create session');
+    btn.disabled = false;
+    btn.textContent = 'Start Session';
   }
 });
 
@@ -111,38 +119,51 @@ document.getElementById('btn-resume-session').addEventListener('click', () => {
 // ── Enter Host Screen ────────────────────────────────────────────────────────
 
 function enterHostScreen() {
-  showScreen('screen-host');
-  document.getElementById('sidebar-session-id').textContent = sessionId;
+  try {
+    showScreen('screen-host');
+    document.getElementById('sidebar-session-id').textContent = sessionId;
 
-  const baseUrl = `${location.protocol}//${location.host}`;
-  const joinUrl = `${baseUrl}/play?session=${sessionId}`;
-  document.getElementById('join-url-display').textContent = joinUrl;
+    // Fetch the correct player URL (uses LAN IP, not localhost)
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const joinUrl = `${cfg.player_url}?session=${sessionId}`;
+      document.getElementById('join-url-display').textContent = joinUrl;
 
-  // QR code
-  document.getElementById('qr-code-container').innerHTML = '';
-  new QRCode(document.getElementById('qr-code-container'), {
-    text: joinUrl,
-    width: 160,
-    height: 160,
-    colorDark: '#0f172a',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M,
-  });
+      try {
+        document.getElementById('qr-code-container').innerHTML = '';
+        new QRCode(document.getElementById('qr-code-container'), {
+          text: joinUrl,
+          width: 160,
+          height: 160,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+      } catch(qrErr) {
+        console.warn('QR code error:', qrErr);
+      }
 
-  document.getElementById('btn-show-display').addEventListener('click', () => {
-    window.open(`/display?session=${sessionId}`, '_blank');
-  });
+      const btnCopy = document.getElementById('btn-copy-join-link');
+      btnCopy.onclick = () => navigator.clipboard.writeText(joinUrl).then(() => showToast('Link copied!'));
+    }).catch(() => {
+      // Fallback to location.host
+      const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
+      document.getElementById('join-url-display').textContent = joinUrl;
+    });
 
-  document.getElementById('btn-copy-join-link').addEventListener('click', () => {
-    navigator.clipboard.writeText(joinUrl).then(() => showToast('Link copied!'));
-  });
+    const btnDisplay = document.getElementById('btn-show-display');
+    btnDisplay.onclick = () => window.open(`/display?session=${sessionId}`, '_blank');
 
-  connectWS();
+    connectWS();
+  } catch(e) {
+    console.error('enterHostScreen error:', e);
+    showToast('Error entering host screen: ' + e.message);
+  }
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
 function connectWS() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}`);
   ws.onmessage = e => {
@@ -151,7 +172,7 @@ function connectWS() {
   };
   ws.onclose = () => setTimeout(connectWS, 2000);
   // Keepalive
-  setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 30000);
+  setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send('ping'); }, 30000);
 }
 
 // ── State Handler ──────────────────────────────────────────────────────────────

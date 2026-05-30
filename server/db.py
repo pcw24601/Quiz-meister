@@ -1,139 +1,119 @@
 """
-Supabase database client and helper functions.
-Uses the REST API directly via httpx (no Python Supabase SDK required).
+In-memory database store for Quiz-Meister.
+All data is lost on server restart. No external dependencies required.
 """
 
-import os
-import json
-import httpx
+import uuid
 from typing import Any
 
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+# ── In-memory stores ──────────────────────────────────────────────────────────
 
-_headers = {
-    "apikey": SUPABASE_ANON_KEY,
-    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-    "Content-Type": "application/json",
-    "Prefer": "return=representation",
-}
-
-
-def _url(table: str) -> str:
-    return f"{SUPABASE_URL}/rest/v1/{table}"
-
-
-def _get(table: str, params: dict = None) -> list[dict]:
-    r = httpx.get(_url(table), headers=_headers, params=params)
-    r.raise_for_status()
-    return r.json()
-
-
-def _post(table: str, data: dict) -> dict:
-    r = httpx.post(_url(table), headers=_headers, json=data)
-    r.raise_for_status()
-    result = r.json()
-    return result[0] if isinstance(result, list) else result
-
-
-def _patch(table: str, filters: dict, data: dict) -> list[dict]:
-    params = {k: f"eq.{v}" for k, v in filters.items()}
-    r = httpx.patch(_url(table), headers=_headers, params=params, json=data)
-    r.raise_for_status()
-    return r.json()
+_sessions: dict[str, dict] = {}
+_teams: dict[str, dict] = {}      # team_id → team
+_answers: dict[str, dict] = {}    # answer_id → answer
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────────
 
 def create_session(quiz_file: str, quiz_data: dict, host_secret: str) -> dict:
-    return _post("sessions", {
+    session_id = str(uuid.uuid4())
+    session = {
+        "id": session_id,
         "quiz_file": quiz_file,
         "quiz_data": quiz_data,
         "state": "lobby",
         "current_round_index": 0,
         "current_question_index": 0,
         "host_secret": host_secret,
-    })
+        "timer_ends_at": None,
+    }
+    _sessions[session_id] = session
+    return session
 
 
 def get_session(session_id: str) -> dict | None:
-    rows = _get("sessions", {"id": f"eq.{session_id}", "select": "*"})
-    return rows[0] if rows else None
+    return _sessions.get(session_id)
 
 
 def update_session(session_id: str, data: dict) -> dict:
-    rows = _patch("sessions", {"id": session_id}, data)
-    return rows[0] if rows else {}
+    session = _sessions.get(session_id)
+    if session:
+        session.update(data)
+    return session or {}
 
 
 # ── Teams ─────────────────────────────────────────────────────────────────────
 
 def register_team(session_id: str, name: str, browser_id: str) -> dict:
-    # Upsert by browser_id
-    existing = _get("teams", {
-        "session_id": f"eq.{session_id}",
-        "browser_id": f"eq.{browser_id}",
-        "select": "*",
-    })
-    if existing:
-        return existing[0]
-    return _post("teams", {
+    # Return existing team for this browser_id if already registered
+    for team in _teams.values():
+        if team["session_id"] == session_id and team["browser_id"] == browser_id:
+            return team
+    team_id = str(uuid.uuid4())
+    team = {
+        "id": team_id,
         "session_id": session_id,
         "name": name,
         "browser_id": browser_id,
-    })
+    }
+    _teams[team_id] = team
+    return team
 
 
 def get_teams(session_id: str) -> list[dict]:
-    return _get("teams", {"session_id": f"eq.{session_id}", "select": "*"})
+    return [t for t in _teams.values() if t["session_id"] == session_id]
 
 
 def update_team(team_id: str, data: dict) -> dict:
-    rows = _patch("teams", {"id": team_id}, data)
-    return rows[0] if rows else {}
+    team = _teams.get(team_id)
+    if team:
+        team.update(data)
+    return team or {}
 
 
 # ── Answers ───────────────────────────────────────────────────────────────────
 
 def submit_answer(session_id: str, team_id: str, round_index: int,
                   question_index: int, answer_data: list, score: int) -> dict:
-    # Check if answer already exists (prevent double-submit)
-    existing = _get("answers", {
-        "session_id": f"eq.{session_id}",
-        "team_id": f"eq.{team_id}",
-        "round_index": f"eq.{round_index}",
-        "question_index": f"eq.{question_index}",
-        "select": "id",
-    })
-    if existing:
-        return existing[0]
-    return _post("answers", {
+    # Prevent double-submit
+    for answer in _answers.values():
+        if (answer["session_id"] == session_id and
+                answer["team_id"] == team_id and
+                answer["round_index"] == round_index and
+                answer["question_index"] == question_index):
+            return answer
+    answer_id = str(uuid.uuid4())
+    answer = {
+        "id": answer_id,
         "session_id": session_id,
         "team_id": team_id,
         "round_index": round_index,
         "question_index": question_index,
         "answer_data": answer_data,
         "score": score,
-    })
+        "score_overridden": False,
+    }
+    _answers[answer_id] = answer
+    return answer
 
 
 def get_answers(session_id: str, round_index: int = None,
                 question_index: int = None) -> list[dict]:
-    params = {"session_id": f"eq.{session_id}", "select": "*"}
+    result = [a for a in _answers.values() if a["session_id"] == session_id]
     if round_index is not None:
-        params["round_index"] = f"eq.{round_index}"
+        result = [a for a in result if a["round_index"] == round_index]
     if question_index is not None:
-        params["question_index"] = f"eq.{question_index}"
-    return _get("answers", params)
+        result = [a for a in result if a["question_index"] == question_index]
+    return result
 
 
 def override_score(answer_id: str, score: int) -> dict:
-    rows = _patch("answers", {"id": answer_id}, {
-        "score": score,
-        "score_overridden": True,
-    })
-    return rows[0] if rows else {}
+    answer = _answers.get(answer_id)
+    if answer:
+        answer["score"] = score
+        answer["score_overridden"] = True
+    return answer or {}
 
 
 def get_leaderboard(session_id: str) -> list[dict]:

@@ -88,16 +88,25 @@ function renderLobby(state) {
 
   // QR code (only render once)
   if (!qrRendered) {
-    const baseUrl = `${location.protocol}//${location.host}`;
-    const joinUrl = `${baseUrl}/play?session=${sessionId}`;
-    document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-    new QRCode(document.getElementById('display-qr'), {
-      text: joinUrl,
-      width: 200,
-      height: 200,
-      colorDark: '#0f172a',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M,
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const joinUrl = `${cfg.player_url}?session=${sessionId}`;
+      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
+      new QRCode(document.getElementById('display-qr'), {
+        text: joinUrl,
+        width: 200,
+        height: 200,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    }).catch(() => {
+      const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
+      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
+      new QRCode(document.getElementById('display-qr'), {
+        text: joinUrl, width: 200, height: 200,
+        colorDark: '#0f172a', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
     });
     qrRendered = true;
   }

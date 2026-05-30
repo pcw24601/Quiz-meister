@@ -195,6 +195,13 @@ async def list_quizzes():
     return {"quizzes": files}
 
 
+@app.get("/api/config")
+async def get_config():
+    local_ip = os.environ.get("LOCAL_IP", "localhost")
+    port = os.environ.get("PORT", "8000")
+    return {"player_url": f"http://{local_ip}:{port}/play"}
+
+
 class CreateSessionRequest(BaseModel):
     quiz_file: str
 
