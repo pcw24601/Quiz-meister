@@ -3,10 +3,19 @@
 
 cd "$(dirname "$0")"
 
-# Install dependencies if needed
-if ! python3 -c "import fastapi" 2>/dev/null; then
-  echo "Installing dependencies..."
-  pip3 install -r requirements.txt
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv venv
 fi
 
-python3 start.py
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies if needed
+if ! python -c "import fastapi" 2>/dev/null; then
+    echo "Installing dependencies..."
+    pip install -r requirements.txt
+fi
+
+python start.py

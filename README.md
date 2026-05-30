@@ -16,30 +16,33 @@ Host a live quiz night on your local WiFi. Players join via their phone browsers
 
 - **Python 3.10+** (Python 3.11 or 3.12 recommended)
 - A modern web browser (Chrome, Firefox, Safari, Edge)
-- WiFi network for players to connect to
+- WiFi network OR laptop with WiFi hotspot capability
 
 ## Quick Start (3 Steps)
 
-### Step 1: Install Dependencies
+### Step 1: Create a Virtual Environment
 
-Open a terminal in the project folder and run:
+This keeps Quiz-Meister isolated from your system Python.
 
 **Windows:**
 ```
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 **Mac/Linux:**
 ```
-pip3 install -r requirements.txt
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-If you get a permission error on Mac/Linux, use:
-```
-pip3 install -r requirements.txt --break-system-packages
-```
+> **Note:** Always activate the virtual environment before running. You'll see `(venv)` in your terminal prompt when active.
 
 ### Step 2: Start the Server
+
+Make sure your virtual environment is activated (you see `(venv)` in the prompt), then run:
 
 **Windows:**
 - Double-click `start.bat`
@@ -50,7 +53,7 @@ pip3 install -r requirements.txt --break-system-packages
 chmod +x start.sh
 ./start.sh
 ```
-Or run: `python3 start.py`
+Or run: `python start.py`
 
 You'll see something like:
 ```
@@ -68,6 +71,55 @@ You'll see something like:
 1. Open `http://localhost:8000/host` in your browser
 2. Select a quiz file (e.g., `example.yaml`)
 3. Click **Start Session**
+
+## Network Setup Options
+
+You have two options for connecting players:
+
+### Option A: Use Your Existing WiFi Router
+
+If you have a home or venue WiFi network:
+
+1. Connect your laptop (host computer) to the WiFi
+2. Connect player phones to the same WiFi
+3. Use the Player URL shown on startup
+
+### Option B: Create a WiFi Hotspot (No Router Needed)
+
+If you don't have a WiFi router, your laptop can create one. All devices will connect directly to your laptop.
+
+#### Windows: Mobile Hotspot
+
+1. Open **Settings** → **Network & Internet** → **Mobile hotspot**
+2. Turn on "Share my Internet connection from" — select your WiFi or Ethernet
+3. Click **Edit** to set a network name and password
+4. Players connect to this hotspot on their phones
+5. Run Quiz-Meister — the Player URL will be your laptop's hotspot IP
+
+#### Mac: Internet Sharing
+
+1. Open **System Settings** → **General** → **Sharing**
+2. Turn on **Internet Sharing**
+3. Share from: your Ethernet or WiFi connection
+4. To computers using: **Wi-Fi**
+5. Click **Wi-Fi Options** to set a network name and password
+6. Players connect to this network on their phones
+7. Run Quiz-Meister — the Player URL will be your Mac's IP
+
+#### Linux: Create a Hotspot
+
+**Using GNOME (Ubuntu, Fedora, etc.):**
+1. Click the WiFi icon in the system tray
+2. Select **Turn On Wi-Fi Hotspot**
+3. Set a network name and password
+4. Players connect to this hotspot
+
+**Using terminal:**
+```bash
+nmcli device wifi hotspot ifname wlan0 ssid "QuizNight" password "quizmaster123"
+```
+
+> **Tip:** The Player URL displayed on startup will show your laptop's hotspot IP address (usually something like `192.168.137.1` on Windows or `192.168.2.1` on Mac).
 
 ## Running a Quiz Night
 
@@ -188,33 +240,6 @@ rounds:
 - `tiebreaker` — mark as tiebreaker question (default: false)
 - `image` — URL to an image to display
 
-## Network Setup Tips
-
-### Same WiFi Network
-
-All devices (host computer, big screen, player phones) must be on the same WiFi network.
-
-### Windows: Find Your IP Address
-
-1. Open Command Prompt
-2. Run: `ipconfig`
-3. Look for "IPv4 Address" under your WiFi adapter
-
-### Mac: Find Your IP Address
-
-1. Open System Preferences → Network
-2. Your IP is shown under the connected WiFi
-
-### Linux: Find Your IP Address
-
-```bash
-ip addr show | grep inet
-```
-
-### Firewall Settings
-
-If players can't connect, check your firewall allows connections on port 8000 (or whichever port you're using).
-
 ## Troubleshooting
 
 ### "Address already in use"
@@ -225,10 +250,24 @@ Another program is using port 8000. Either:
 
 ### Players can't connect
 
-1. Verify all devices are on the same WiFi network
+1. Verify all devices are on the same network (same WiFi or your laptop's hotspot)
 2. Check the URL players are using matches your computer's IP
 3. Try disabling your firewall temporarily
 4. Make sure you're using `http://` not `https://`
+5. If using a hotspot, confirm players are connected to it
+
+### Virtual environment not activating
+
+If you see an error like "execution policy" on Windows:
+```
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+On Mac/Linux, if `source venv/bin/activate` doesn't work:
+```bash
+chmod +x venv/bin/activate
+source venv/bin/activate
+```
 
 ### Session lost after restart
 
@@ -254,7 +293,7 @@ $env:PORT=8080; python start.py
 
 **Mac/Linux:**
 ```
-PORT=8080 python3 start.py
+PORT=8080 python start.py
 ```
 
 ### Add Your Own Quiz
