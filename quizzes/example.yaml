@@ -157,3 +157,23 @@ rounds:
         time: 15
         points: 1
         tiebreaker: true
+
+  - name: "Quickfire"
+    questions:
+      - type: first_letter
+        text: "What is the chemical symbol for water?"
+        answer: H
+        time: 10
+        points: 1
+
+      - type: first_letter
+        text: "What is the capital of France?"
+        answer: P
+        time: 10
+        points: 1
+
+      - type: first_letter
+        text: "What is the largest planet in our solar system?"
+        answer: J
+        time: 10
+        points: 1

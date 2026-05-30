@@ -237,7 +237,8 @@ function renderQuestion(state) {
 
 function qtypeLabel(type) {
   return { multiple_choice:'Multiple Choice', select_many:'Select Many',
-           order:'Put in Order', numeric:'Numeric', picture:'Picture Round' }[type] || type;
+           order:'Put in Order', numeric:'Numeric', picture:'Picture Round',
+           first_letter:'First Letter' }[type] || type;
 }
 
 function renderOptionsHTML(q) {
@@ -271,6 +272,11 @@ function renderOptionsHTML(q) {
   if (q.type === 'numeric') {
     return `<div class="option-row correct">
       <div class="option-text">Correct answer: <strong>${q.answer}</strong></div>
+    </div>`;
+  }
+  if (q.type === 'first_letter') {
+    return `<div class="option-row correct">
+      <div class="option-text">Correct first letter: <strong>${q.answer}</strong></div>
     </div>`;
   }
   return '';
@@ -362,6 +368,9 @@ function correctAnswerHTML(q) {
   if (q.type === 'numeric') {
     return `Correct answer: <strong>${q.answer}</strong>`;
   }
+  if (q.type === 'first_letter') {
+    return `Correct first letter: <strong>${q.answer}</strong>`;
+  }
   return '';
 }
 
@@ -379,6 +388,9 @@ function formatAnswer(answerData, q) {
   }
   if (q.type === 'numeric') {
     return answerData[0];
+  }
+  if (q.type === 'first_letter') {
+    return `Letter: ${answerData[0]}`;
   }
   return answerData.join(', ');
 }

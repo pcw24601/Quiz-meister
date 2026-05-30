@@ -68,6 +68,15 @@ def _parse_question(q: dict, ri: int, qi: int) -> dict:
         base["answer"] = float(q.get("answer", 0))
         base["tolerance"] = q.get("tolerance")  # optional exact match tolerance
 
+    elif qtype == "first_letter":
+        base["answer"] = str(q.get("answer", "")).upper()
+        # Letters to display in the grid (optional, defaults to A-Z)
+        letters = q.get("letters")
+        if letters:
+            base["letters"] = [str(l).upper() for l in letters]
+        else:
+            base["letters"] = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
     return base
 
 
@@ -108,6 +117,11 @@ def score_answer(question: dict, answer_data: list) -> int:
             return 0
         # Numeric scoring is relative — scored at reveal time vs all teams
         # Here we just return the submitted value for later comparison
+        return 0
+
+    elif qtype == "first_letter":
+        if answer_data and str(answer_data[0]).upper() == question.get("answer", "").upper():
+            return points
         return 0
 
     return 0

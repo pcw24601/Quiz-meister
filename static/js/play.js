@@ -192,6 +192,7 @@ function renderQuestion(state) {
   document.getElementById('play-select-many').classList.add('hidden');
   document.getElementById('play-order').classList.add('hidden');
   document.getElementById('play-numeric').classList.add('hidden');
+  document.getElementById('play-first-letter').classList.add('hidden');
   document.getElementById('play-submitted').classList.add('hidden');
 
   if (alreadyAnswered) {
@@ -236,6 +237,14 @@ function renderQuestionInput(q) {
     document.getElementById('play-numeric-input').value = '';
     document.getElementById('play-numeric').classList.remove('hidden');
     document.getElementById('play-numeric-input').focus();
+
+  } else if (q.type === 'first_letter') {
+    const letters = q.letters || "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    const gridEl = document.getElementById('letter-grid');
+    gridEl.innerHTML = letters.map(l => `
+      <button class="letter-btn" data-letter="${l}" onclick="selectLetter('${l}')">${l}</button>
+    `).join('');
+    document.getElementById('play-first-letter').classList.remove('hidden');
   }
 }
 
@@ -360,6 +369,12 @@ document.getElementById('btn-submit-order').addEventListener('click', () => {
 
 // ── Numeric submit ─────────────────────────────────────────────────────────────
 
+// ── First letter submit ───────────────────────────────────────────────────────
+
+function selectLetter(letter) {
+  submitAnswer([letter]);
+}
+
 document.getElementById('btn-submit-numeric').addEventListener('click', () => {
   const val = document.getElementById('play-numeric-input').value.trim();
   if (!val) return;
@@ -380,6 +395,7 @@ async function submitAnswer(answerData) {
   document.getElementById('play-select-many').classList.add('hidden');
   document.getElementById('play-order').classList.add('hidden');
   document.getElementById('play-numeric').classList.add('hidden');
+  document.getElementById('play-first-letter').classList.add('hidden');
   document.getElementById('play-submitted').classList.remove('hidden');
 
   try {
@@ -414,6 +430,8 @@ function renderReveal(state) {
     answerEl.textContent = (q.items || []).join(' → ');
   } else if (q.type === 'numeric') {
     answerEl.textContent = `Answer: ${q.answer}`;
+  } else if (q.type === 'first_letter') {
+    answerEl.textContent = `First letter: ${q.answer}`;
   }
 
   // Show my answer
@@ -447,6 +465,9 @@ function formatMyAnswer(answerData, q) {
   }
   if (q.type === 'order') {
     return answerData.map(i => q.items?.[parseInt(i)] || i).join(' → ');
+  }
+  if (q.type === 'first_letter') {
+    return `You chose: ${answerData[0]}`;
   }
   return String(answerData[0]);
 }

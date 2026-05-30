@@ -161,6 +161,13 @@ function renderQuestion(state) {
     </div>`;
     optEl.style.display = 'grid';
     optEl.style.gridTemplateColumns = '1fr';
+  } else if (q.type === 'first_letter') {
+    const letters = q.letters || "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    optEl.innerHTML = `<div class="display-letter-grid" style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:16px">
+      ${letters.map(l => `<div class="display-letter-box">${l}</div>`).join('')}
+    </div>`;
+    optEl.style.display = 'grid';
+    optEl.style.gridTemplateColumns = '1fr';
   } else {
     optEl.style.display = 'none';
   }
@@ -220,6 +227,13 @@ function renderReveal(state) {
   if (q.type === 'multiple_choice' || q.type === 'picture') {
     answerEl.textContent = `${LETTERS[q.correct]}. ${(q.options || [])[q.correct] || ''}`;
     optionsEl.innerHTML = '';
+  } else if (q.type === 'first_letter') {
+    const letters = q.letters || "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    const correctLetter = q.answer;
+    optionsEl.innerHTML = `<div class="reveal-letter-grid">
+      ${letters.map(l => `<div class="reveal-letter-box ${l === correctLetter ? 'correct' : ''}">${l}</div>`).join('')}
+    </div>`;
+    answerEl.textContent = '';
   } else if (q.type === 'select_many') {
     answerEl.textContent = '';
     optionsEl.innerHTML = (q.options || []).map((opt, i) => {
