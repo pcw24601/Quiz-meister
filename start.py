@@ -47,14 +47,15 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
 
     print(f"""
-╔═══════════════════════════════════════════╗
-║           Quiz-Meister Starting           ║
-╠═══════════════════════════════════════════╣
-║  Host panel:  http://localhost:{port}/host  ║
-║  Big screen:  http://localhost:{port}/display
-║  Player URL:  http://{ip}:{port}/play
-║  (Share the player URL with teams)
-╚═══════════════════════════════════════════╝
+╔════════════════════════════════════════════════════╗
+║            Quiz-Meister Starting                   ║
+╠════════════════════════════════════════════════════╣
+║  Host panel:   http://localhost:{port}/host          ║
+║  Big screen:   http://localhost:{port}/display       ║
+║  Quiz Editor:  http://localhost:{port}/editor        ║
+║  Player URL:   http://{ip}:{port}/play                ║
+║  (Share the player URL with teams)                 ║
+╚════════════════════════════════════════════════════╝
 """)
 
     server_dir = os.path.join(os.path.dirname(__file__), 'server')
