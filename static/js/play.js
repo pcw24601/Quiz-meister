@@ -292,10 +292,15 @@ document.getElementById('btn-submit-many').addEventListener('click', () => {
 
 function renderOrderList() {
   const list = document.getElementById('play-order-list');
+  const n = orderItems.length;
   list.innerHTML = orderItems.map((item, i) => `
     <div class="order-item" draggable="true" data-pos="${i}">
       <span class="drag-handle">&#8801;</span>
       <span class="order-item-text">${escHtml(item.text)}</span>
+      <div class="order-buttons">
+        <button class="order-btn order-btn-up" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
+        <button class="order-btn order-btn-down" data-dir="1" ${i === n-1 ? 'disabled' : ''} aria-label="Move down">▼</button>
+      </div>
     </div>
   `).join('');
 
@@ -308,6 +313,23 @@ function renderOrderList() {
     item.addEventListener('touchstart', touchStart, {passive:true});
     item.addEventListener('touchmove', touchMove, {passive:false});
     item.addEventListener('touchend', touchEnd);
+  });
+
+  // Up/down buttons for mobile
+  list.querySelectorAll('.order-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = btn.closest('.order-item');
+      const pos = parseInt(item.dataset.pos);
+      const dir = parseInt(btn.dataset.dir);
+      const newPos = pos + dir;
+      if (newPos >= 0 && newPos < orderItems.length) {
+        const tmp = orderItems[pos];
+        orderItems[pos] = orderItems[newPos];
+        orderItems[newPos] = tmp;
+        renderOrderList();
+      }
+    });
   });
 }
 

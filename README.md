@@ -241,7 +241,36 @@ rounds:
 - `image` — URL to an image to display (for picture type)
 - `note` — hint text to display with question (for first_letter type)
 
-### Tiebreaker Questions
+### Picture Questions
+
+For picture questions, you can use either external URLs or local files:
+
+**External URL:**
+```yaml
+image: "https://example.com/photo.jpg"
+```
+
+**Local file:**
+1. Place image files in the `quizzes/images/` folder
+2. Reference them as: `/quiz-images/filename.jpg`
+
+```yaml
+image: "/quiz-images/landmark.jpg"
+```
+
+**Organizing local images:**
+```
+quizzes/
+  my-quiz.yaml
+  images/
+    round1/
+      q1.jpg
+      q2.jpg
+    round2/
+      famous-landmark.png
+```
+
+Then reference: `/quiz-images/round1/q1.jpg`
 
 Tiebreaker questions are used to break ties when teams have the same score at the end of the quiz. They work differently depending on question type:
 
@@ -303,10 +332,10 @@ source venv/bin/activate
 
 ### Session lost after restart
 
-The session state is saved to the Supabase database. You can resume:
-1. Copy the Session ID from the host panel
-2. Copy the Host Secret
-3. On a new host panel, paste both and click "Resume Session"
+**Note:** Quiz sessions are stored in memory and will be lost on server restart. To preserve quiz data:
+- Save your quiz YAML files to disk (they persist across restarts)
+- Use the Quiz Editor to create and save quizzes
+- The current game session (teams, scores) is temporary and designed for single-event use
 
 ### QR Code not working
 
@@ -347,7 +376,7 @@ PORT=8080 python start.py
 ## Tech Stack
 
 - **Backend:** Python + FastAPI + WebSockets
-- **Database:** Supabase (PostgreSQL)
+- **Storage:** In-memory (session state), Local files (quiz YAMLs, images)
 - **Frontend:** Plain HTML/CSS/JavaScript (no framework)
 - **Dependencies:** See `requirements.txt`
 

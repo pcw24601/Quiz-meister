@@ -165,6 +165,7 @@ def _strip_answers(q: dict) -> dict:
 
 app = FastAPI(title="Quiz-Meister")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/quiz-images", StaticFiles(directory=str(QUIZZES_DIR / "images")), name="quiz-images")
 
 
 @app.get("/")

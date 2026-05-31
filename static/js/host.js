@@ -349,9 +349,11 @@ function renderReveal(state) {
   tbody.innerHTML = answers.map(a => {
     const team = teamMap[a.team_id] || {name:'Unknown'};
     const answerStr = formatAnswer(a.answer_data, q);
+    const isCorrect = a.score > 0 && !a.score_overridden;
     const scoreClass = a.score_overridden ? 'score-overridden' : a.score > 0 ? 'score-correct' : 'score-zero';
+    const rowClass = isCorrect ? 'correct-row' : '';
     return `
-      <tr>
+      <tr class="${rowClass}">
         <td>${escHtml(team.name)}</td>
         <td>${escHtml(answerStr)}</td>
         <td class="${scoreClass}">${a.score}</td>

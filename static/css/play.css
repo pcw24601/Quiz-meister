@@ -301,6 +301,52 @@
   color: var(--neutral-800);
 }
 
+.order-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.order-btn {
+  width: 36px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--neutral-600);
+  transition: all var(--transition-fast);
+}
+
+.order-btn:hover:not(:disabled) {
+  background: var(--primary-100);
+  border-color: var(--primary-300);
+  color: var(--primary-700);
+}
+
+.order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.order-btn-up, .order-btn-down {
+  font-size: 0.625rem;
+}
+
+/* Hide buttons on desktop, show on mobile */
+@media (min-width: 768px) {
+  .order-buttons { display: none; }
+}
+
+@media (max-width: 767px) {
+  .drag-handle { display: none; }
+}
+
 /* ── Numeric ─────────────────────────────────────────────────────────────────*/
 
 .play-numeric {

@@ -58,7 +58,7 @@ Open `http://localhost:8000/host` in your browser to verify everything works.
 quiz-meister/
 ├── server/
 │   ├── app.py           # FastAPI backend, WebSocket handler
-│   ├── db.py            # Supabase database operations
+│   ├── db.py            # In-memory database operations
 │   └── quiz_loader.py   # YAML quiz file parser
 ├── static/
 │   ├── host.html        # Host control panel UI
@@ -77,8 +77,9 @@ quiz-meister/
 │       └── qrcode.min.js # QR code library
 ├── quizzes/
 │   └── example.yaml     # Sample quiz file
-├── supabase/
-│   └── migrations/      # Database migrations
+├── quizzes/
+│   ├── example.yaml     # Sample quiz file
+│   └── images/          # Local quiz images
 ├── start.py             # Server entry point
 ├── start.sh             # Linux/Mac launcher
 ├── start.bat            # Windows launcher
@@ -113,7 +114,7 @@ Add picture question type to quiz editor
 
 1. **Backend (Python)**:
    - `server/app.py` — API endpoints, WebSocket handling
-   - `server/db.py` — Database operations
+   - `server/db.py` — In-memory session storage
    - `server/quiz_loader.py` — YAML parsing and scoring
 
 2. **Frontend (HTML/CSS/JS)**:
@@ -121,9 +122,10 @@ Add picture question type to quiz editor
    - `static/css/*.css` — Styling
    - `static/js/*.js` — Client-side logic
 
-3. **Database**:
-   - Add migrations in `supabase/migrations/`
-   - Follow the migration naming convention: `YYYYMMDD_description.sql`
+3. **Data Storage**:
+   - Quiz sessions are stored in-memory (lost on restart)
+   - Quiz YAML files and images are stored locally on disk
+   - No external database required
 
 ## Testing
 
@@ -150,10 +152,39 @@ Before submitting a PR, verify:
 
 ### YAML Parser Testing
 
-Test changes to quiz_loader.py:
+Test the quiz loader from the command line:
+
+```bash
+# From the project root directory
+python3 -c "
+import sys
+sys.path.insert(0, 'server')
+from quiz_loader import load_quiz
+
+quiz = load_quiz('quizzes/example.yaml')
+print('Quiz loaded:', quiz['title'])
+print('Rounds:', len(quiz['rounds']))
+for i, r in enumerate(quiz['rounds']):
+    print(f'  Round {i+1}: {r[\"name\"]} ({len(r[\"questions\"])} questions)')
+"
+```
+
+Test score calculation:
 
 ```bash
 python3 -c "
+import sys
+sys.path.insert(0, 'server')
+from quiz_loader import load_quiz, score_answer
+
+quiz = load_quiz('quizzes/example.yaml')
+q = quiz['rounds'][0]['questions'][0]
+# Test an answer (adjust based on question type)
+score = score_answer(q, [0])  # First option selected
+print(f'Question: {q[\"text\"][:40]}...')
+print(f'Score for answer [0]: {score}')
+"
+```
 import sys; sys.path.insert(0, 'server')
 from quiz_loader import load_quiz, score_answer
 quiz = load_quiz('quizzes/example.yaml')
