@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Editor — Quiz-Meister</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<style>
+:root {
+  --editor-bg: #0f1117;
+  --editor-sidebar: #161922;
+  --editor-card: #1c1f2a;
+  --editor-border: #2a2e3a;
+  --editor-text: #e5e7eb;
+  --editor-muted: #9ca3af;
+  --primary-500: #3b82f6;
+  --success-500: #22c55e;
+  --danger-500: #ef4444;
+  --warning-500: #f59e0b;
+}
+
+body {
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 60px 1fr;
+  min-height: 100vh;
+}
+
+/* Header */
+.editor-header {
+  grid-column: 1 / -1;
+  background: var(--editor-sidebar);
+  border-bottom: 1px solid var(--editor-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.editor-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Sidebar */
+.editor-sidebar {
+  background: var(--editor-sidebar);
+  border-right: 1px solid var(--editor-border);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 20px;
+}
+
+.sidebar-section h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--editor-muted);
+  margin: 0 0 8px 0;
+  letter-spacing: 0.5px;
+}
+
+.round-item {
+  padding: 10px 12px;
+  background: var(--editor-card);
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.round-item:hover {
+  border-color: var(--primary-500);
+}
+
+.round-item.active {
+  border-color: var(--primary-500);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.round-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.round-item-name {
+  font-weight: 500;
+}
+
+.round-item-count {
+  font-size: 0.75rem;
+  color: var(--editor-muted);
+}
+
+.btn-add-round {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 2px dashed var(--editor-border);
+  border-radius: 8px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-add-round:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+}
+
+/* Main content */
+.editor-main {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.round-editor {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.round-title-input {
+  font-size: 1.75rem;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  color: var(--editor-text);
+  width: 100%;
+  padding: 8px 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: 24px;
+}
+
+.round-title-input:focus {
+  outline: none;
+  border-bottom-color: var(--primary-500);
+}
+
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.question-card {
+  background: var(--editor-card);
+  border: 1px solid var(--editor-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.question-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--editor-border);
+}
+
+.question-number {
+  font-weight: 600;
+  color: var(--primary-500);
+}
+
+.question-type-select {
+  padding: 6px 12px;
+  background: var(--editor-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  color: var(--editor-text);
+  font-size: 0.875rem;
+}
+
+.question-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--editor-bg);
+  color: var(--editor-text);
+}
+
+.btn-icon.danger:hover {
+  color: var(--danger-500);
+  border-color: var(--danger-500);
+}
+
+.question-body {
+  padding: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--editor-muted);
+  letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 10px 12px;
+  background: var(--editor-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  color: var(--editor-text);
+  font-size: 0.9rem;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-500);
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.option-row input {
+  flex: 1;
+}
+
+.option-row input.correct {
+  border-color: var(--success-500);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.btn-add-option {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px dashed var(--editor-border);
+  border-radius: 6px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-add-option:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+}
+
+.btn-correct {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--editor-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-correct.active {
+  background: var(--success-500);
+  border-color: var(--success-500);
+}
+
+.btn-correct.multiple.active {
+  background: var(--success-500);
+  border-color: var(--success-500);
+}
+
+.add-question-btn {
+  width: 100%;
+  padding: 20px;
+  background: transparent;
+  border: 2px dashed var(--editor-border);
+  border-radius: 12px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.15s;
+}
+
+.add-question-btn:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--primary-500);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: var(--editor-card);
+  border: 1px solid var(--editor-border);
+  color: var(--editor-text);
+}
+
+.btn-secondary:hover {
+  background: var(--editor-bg);
+}
+
+.btn-success {
+  background: var(--success-500);
+  color: white;
+}
+
+/* Helpers */
+.hidden { display: none !important; }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--editor-muted);
+}
+
+.empty-state h2 {
+  font-size: 1.5rem;
+  color: var(--editor-text);
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="editor-layout">
+  <!-- Header -->
+  <header class="editor-header">
+    <h1><span style="color: var(--primary-500)">&#9670;</span> Quiz Editor</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="btn-open">Open...</button>
+      <button class="btn btn-secondary" id="btn-save-yaml">Save as YAML</button>
+      <button class="btn btn-success" id="btn-save">Save Quiz</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="editor-sidebar">
+    <div class="sidebar-section">
+      <h3>Quiz Title</h3>
+      <input type="text" id="quiz-title" placeholder="My Quiz Night" style="width:100%;padding:10px;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text)">
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Rounds</h3>
+      <div id="round-list"></div>
+      <button class="btn-add-round" id="btn-add-round">+ Add Round</button>
+    </div>
+  </aside>
+
+  <!-- Main Editor -->
+  <main class="editor-main">
+    <div id="round-editor" class="round-editor hidden">
+      <input type="text" id="round-name" class="round-title-input" placeholder="Round Name">
+      <div id="question-list" class="question-list"></div>
+      <button class="add-question-btn" id="btn-add-question">+ Add Question</button>
+    </div>
+    <div id="empty-state" class="empty-state">
+      <h2>No Round Selected</h2>
+      <p>Select a round from the sidebar or create a new one to get started.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+
+let quiz = {
+  title: 'My Quiz Night',
+  rounds: []
+};
+let activeRoundIndex = -1;
+
+// ── Renderers ────────────────────────────────────────────────────────────────
+
+function renderSidebar() {
+  const list = document.getElementById('round-list');
+  list.innerHTML = quiz.rounds.map((r, i) => `
+    <div class="round-item ${i === activeRoundIndex ? 'active' : ''}" onclick="selectRound(${i})">
+      <div class="round-item-header">
+        <span class="round-item-name">${r.name || 'Untitled Round'}</span>
+        <span class="round-item-count">${r.questions.length} questions</span>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('quiz-title').value = quiz.title;
+}
+
+function renderRoundEditor() {
+  if (activeRoundIndex < 0 || activeRoundIndex >= quiz.rounds.length) {
+    document.getElementById('round-editor').classList.add('hidden');
+    document.getElementById('empty-state').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('round-editor').classList.remove('hidden');
+  document.getElementById('empty-state').classList.add('hidden');
+
+  const round = quiz.rounds[activeRoundIndex];
+  document.getElementById('round-name').value = round.name;
+
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const round = quiz.rounds[activeRoundIndex];
+  const list = document.getElementById('question-list');
+
+  list.innerHTML = round.questions.map((q, i) => renderQuestionCard(q, i)).join('');
+}
+
+function renderQuestionCard(q, idx) {
+  const typeOptions = ['multiple_choice', 'select_many', 'order', 'numeric', 'picture', 'first_letter']
+    .map(t => `<option value="${t}" ${q.type === t ? 'selected' : ''}>${formatType(t)}</option>`)
+    .join('');
+
+  let extraFields = '';
+
+  if (['multiple_choice', 'picture', 'select_many'].includes(q.type)) {
+    const isMultiple = q.type === 'select_many';
+    extraFields = `
+      <div class="form-group full">
+        <label>Options ${isMultiple ? '(check all correct answers)' : '(select the correct one)'}</label>
+        <div class="options-container">
+          ${(q.options || []).map((opt, oi) => `
+            <div class="option-row">
+              <button class="btn-correct ${isMultiple ? 'multiple' : ''} ${(isMultiple ? q.correct.includes(oi) : q.correct === oi) ? 'active' : ''}"
+                      onclick="toggleCorrect(${idx}, ${oi})" title="Mark as correct"></button>
+              <input type="text" value="${escapeHtml(opt)}" onchange="updateOption(${idx}, ${oi}, this.value)"
+                     class="${(isMultiple ? q.correct.includes(oi) : q.correct === oi) ? 'correct' : ''}">
+              <button class="btn-icon danger" onclick="removeOption(${idx}, ${oi})" title="Remove option">x</button>
+            </div>
+          `).join('')}
+          <button class="btn-add-option" onclick="addOption(${idx})">+ Add Option</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (q.type === 'order') {
+    extraFields = `
+      <div class="form-group full">
+        <label>Items (in correct order)</label>
+        <div class="options-container">
+          ${(q.items || []).map((item, oi) => `
+            <div class="option-row">
+              <span style="color:var(--editor-muted);width:24px">${oi + 1}.</span>
+              <input type="text" value="${escapeHtml(item)}" onchange="updateOrderItem(${idx}, ${oi}, this.value)">
+              <button class="btn-icon danger" onclick="removeOrderItem(${idx}, ${oi})" title="Remove">x</button>
+            </div>
+          `).join('')}
+          <button class="btn-add-option" onclick="addOrderItem(${idx})">+ Add Item</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (q.type === 'numeric') {
+    extraFields = `
+      <div class="form-group">
+        <label>Correct Answer</label>
+        <input type="number" value="${q.answer || 0}" onchange="updateQuestion(${idx}, 'answer', parseFloat(this.value))">
+      </div>
+      <div class="form-group">
+        <label>Tolerance (optional)</label>
+        <input type="number" value="${q.tolerance || 0}" onchange="updateQuestion(${idx}, 'tolerance', parseFloat(this.value))">
+      </div>
+    `;
+  }
+
+  if (q.type === 'first_letter') {
+    extraFields = `
+      <div class="form-group">
+        <label>Correct First Letter</label>
+        <input type="text" maxlength="1" value="${q.answer || 'A'}" onchange="updateQuestion(${idx}, 'answer', this.value.toUpperCase())" style="text-transform:uppercase">
+      </div>
+      <div class="form-group">
+        <label>Full Answer (displayed as hint)</label>
+        <input type="text" value="${q.note || ''}" placeholder="e.g., Paris" onchange="updateQuestion(${idx}, 'note', this.value)">
+      </div>
+    `;
+  }
+
+  if (q.type === 'picture') {
+    extraFields += `
+      <div class="form-group full">
+        <label>Image URL</label>
+        <input type="url" value="${q.image || ''}" placeholder="https://..." onchange="updateQuestion(${idx}, 'image', this.value)">
+      </div>
+    `;
+  }
+
+  return `
+    <div class="question-card" data-index="${idx}">
+      <div class="question-card-header">
+        <span class="question-number">Q${idx + 1}</span>
+        <select class="question-type-select" onchange="changeQuestionType(${idx}, this.value)">
+          ${typeOptions}
+        </select>
+        <div class="question-actions">
+          <button class="btn-icon" onclick="moveQuestion(${idx}, -1)" title="Move up">u</button>
+          <button class="btn-icon" onclick="moveQuestion(${idx}, 1)" title="Move down">d</button>
+          <button class="btn-icon danger" onclick="deleteQuestion(${idx})" title="Delete">x</button>
+        </div>
+      </div>
+      <div class="question-body">
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Question Text</label>
+            <textarea onchange="updateQuestion(${idx}, 'text', this.value)">${escapeHtml(q.text || '')}</textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Time (seconds)</label>
+            <input type="number" value="${q.time || 30}" onchange="updateQuestion(${idx}, 'time', parseInt(this.value))">
+          </div>
+          <div class="form-group">
+            <label>Points</label>
+            <input type="number" value="${q.points || 1}" onchange="updateQuestion(${idx}, 'points', parseInt(this.value))">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tiebreaker?</label>
+            <select onchange="updateQuestion(${idx}, 'tiebreaker', this.value === 'true')">
+              <option value="false" ${!q.tiebreaker ? 'selected' : ''}>No</option>
+              <option value="true" ${q.tiebreaker ? 'selected' : ''}>Yes</option>
+            </select>
+          </div>
+        </div>
+        ${extraFields}
+      </div>
+    </div>
+  `;
+}
+
+function formatType(t) {
+  return {
+    multiple_choice: 'Multiple Choice',
+    select_many: 'Select Many',
+    order: 'Put in Order',
+    numeric: 'Numeric',
+    picture: 'Picture Round',
+    first_letter: 'First Letter'
+  }[t] || t;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+
+function selectRound(index) {
+  activeRoundIndex = index;
+  renderSidebar();
+  renderRoundEditor();
+}
+
+function addRound() {
+  quiz.rounds.push({
+    name: `Round ${quiz.rounds.length + 1}`,
+    questions: []
+  });
+  activeRoundIndex = quiz.rounds.length - 1;
+  renderSidebar();
+  renderRoundEditor();
+}
+
+function addQuestion() {
+  const round = quiz.rounds[activeRoundIndex];
+  round.questions.push({
+    type: 'multiple_choice',
+    text: '',
+    time: 30,
+    points: 1,
+    tiebreaker: false,
+    options: ['', '', '', ''],
+    correct: 0
+  });
+  renderQuestions();
+}
+
+function deleteQuestion(idx) {
+  if (!confirm('Delete this question?')) return;
+  quiz.rounds[activeRoundIndex].questions.splice(idx, 1);
+  renderQuestions();
+}
+
+function moveQuestion(idx, direction) {
+  const questions = quiz.rounds[activeRoundIndex].questions;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= questions.length) return;
+  [questions[idx], questions[newIdx]] = [questions[newIdx], questions[idx]];
+  renderQuestions();
+}
+
+function changeQuestionType(idx, newType) {
+  const q = quiz.rounds[activeRoundIndex].questions[idx];
+  const base = { type: newType, text: q.text, time: q.time, points: q.points, tiebreaker: q.tiebreaker };
+
+  if (newType === 'multiple_choice' || newType === 'picture') {
+    base.options = q.options || ['', '', '', ''];
+    base.correct = 0;
+    if (newType === 'picture') base.image = '';
+  } else if (newType === 'select_many') {
+    base.options = q.options || ['', '', '', ''];
+    base.correct = [];
+  } else if (newType === 'order') {
+    base.items = ['', '', ''];
+  } else if (newType === 'numeric') {
+    base.answer = 0;
+    base.tolerance = 0;
+  } else if (newType === 'first_letter') {
+    base.answer = 'A';
+    base.note = '';
+  }
+
+  quiz.rounds[activeRoundIndex].questions[idx] = base;
+  renderQuestions();
+}
+
+function updateQuestion(idx, field, value) {
+  quiz.rounds[activeRoundIndex].questions[idx][field] = value;
+}
+
+function addOption(qIdx) {
+  const q = quiz.rounds[activeRoundIndex].questions[qIdx];
+  if (!q.options) q.options = [];
+  q.options.push('');
+  if (q.type === 'select_many' && !q.correct) q.correct = [];
+  renderQuestions();
+}
+
+function removeOption(qIdx, oIdx) {
+  quiz.rounds[activeRoundIndex].questions[qIdx].options.splice(oIdx, 1);
+  renderQuestions();
+}
+
+function updateOption(qIdx, oIdx, value) {
+  quiz.rounds[activeRoundIndex].questions[qIdx].options[oIdx] = value;
+}
+
+function toggleCorrect(qIdx, oIdx) {
+  const q = quiz.rounds[activeRoundIndex].questions[qIdx];
+  if (q.type === 'select_many') {
+    if (!q.correct) q.correct = [];
+    const pos = q.correct.indexOf(oIdx);
+    if (pos >= 0) q.correct.splice(pos, 1);
+    else q.correct.push(oIdx);
+    q.correct.sort((a, b) => a - b);
+  } else {
+    q.correct = oIdx;
+  }
+  renderQuestions();
+}
+
+function addOrderItem(qIdx) {
+  const q = quiz.rounds[activeRoundIndex].questions[qIdx];
+  if (!q.items) q.items = [];
+  q.items.push('');
+  renderQuestions();
+}
+
+function removeOrderItem(qIdx, iIdx) {
+  quiz.rounds[activeRoundIndex].questions[qIdx].items.splice(iIdx, 1);
+  renderQuestions();
+}
+
+function updateOrderItem(qIdx, iIdx, value) {
+  quiz.rounds[activeRoundIndex].questions[qIdx].items[iIdx] = value;
+}
+
+// ── Save/Load ────────────────────────────────────────────────────────────────
+
+document.getElementById('quiz-title').addEventListener('input', (e) => {
+  quiz.title = e.target.value;
+});
+
+document.getElementById('round-name').addEventListener('input', (e) => {
+  if (activeRoundIndex >= 0) {
+    quiz.rounds[activeRoundIndex].name = e.target.value;
+    renderSidebar();
+  }
+});
+
+document.getElementById('btn-add-round').addEventListener('click', addRound);
+document.getElementById('btn-add-question').addEventListener('click', addQuestion);
+
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const yaml = generateYAML();
+  const blob = new Blob([yaml], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btn-save-yaml').addEventListener('click', () => {
+  const yaml = generateYAML();
+  const blob = new Blob([yaml], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btn-open').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.yaml,.yml';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    parseYAML(text);
+    activeRoundIndex = 0;
+    renderSidebar();
+    renderRoundEditor();
+  };
+  input.click();
+});
+
+function generateYAML() {
+  let yaml = `title: "${(quiz.title || 'Quiz').replace(/"/g, '\\"')}"\n\nrounds:\n`;
+
+  for (const round of quiz.rounds) {
+    yaml += `  - name: "${(round.name || 'Round').replace(/"/g, '\\"')}"\n`;
+    yaml += `    questions:\n`;
+
+    for (const q of round.questions) {
+      yaml += `      - type: ${q.type}\n`;
+      yaml += `        text: "${(q.text || '').replace(/"/g, '\\"')}"\n`;
+
+      if (q.time !== 30) yaml += `        time: ${q.time}\n`;
+      if (q.points !== 1) yaml += `        points: ${q.points}\n`;
+      if (q.tiebreaker) yaml += `        tiebreaker: true\n`;
+
+      if (q.type === 'multiple_choice' || q.type === 'picture' || q.type === 'select_many') {
+        yaml += `        options:\n`;
+        for (const opt of q.options || []) {
+          yaml += `          - "${(opt || '').replace(/"/g, '\\"')}"\n`;
+        }
+        if (q.type === 'select_many') {
+          yaml += `        correct: [${(q.correct || []).join(', ')}]\n`;
+        } else {
+          yaml += `        correct: ${q.correct}\n`;
+        }
+      }
+
+      if (q.type === 'picture' && q.image) {
+        yaml += `        image: "${q.image}"\n`;
+      }
+
+      if (q.type === 'order') {
+        yaml += `        items:\n`;
+        for (const item of q.items || []) {
+          yaml += `          - "${(item || '').replace(/"/g, '\\"')}"\n`;
+        }
+      }
+
+      if (q.type === 'numeric') {
+        yaml += `        answer: ${q.answer}\n`;
+        if (q.tolerance) yaml += `        tolerance: ${q.tolerance}\n`;
+      }
+
+      if (q.type === 'first_letter') {
+        yaml += `        answer: ${q.answer}\n`;
+        if (q.note) yaml += `        note: "${q.note.replace(/"/g, '\\"')}"\n`;
+      }
+    }
+  }
+
+  return yaml;
+}
+
+function parseYAML(text) {
+  // Simple YAML parser for our format
+  // Note: In production, use js-yaml library
+  const lines = text.split('\n');
+  quiz = { title: 'Quiz', rounds: [] };
+  let currentRound = null;
+  let currentQuestion = null;
+  let inOptions = false;
+  let inItems = false;
+  let optionIndex = 0;
+  let itemIndex = 0;
+
+  for (let line of lines) {
+    const indent = line.search(/\S|$/);
+    line = line.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    if (indent === 0 && line.startsWith('title:')) {
+      quiz.title = line.replace('title:', '').trim().replace(/^["']|["']$/g, '');
+    } else if (indent === 0 && line.startsWith('rounds:')) {
+      // rounds list start
+    } else if (indent === 2 && line.startsWith('- name:')) {
+      currentRound = { name: line.replace('- name:', '').trim().replace(/^["']|["']$/g, ''), questions: [] };
+      quiz.rounds.push(currentRound);
+      currentQuestion = null;
+    } else if (indent === 6 && line.startsWith('- type:')) {
+      if (!currentRound) continue;
+      currentQuestion = {
+        type: line.replace('- type:', '').trim(),
+        text: '',
+        time: 30,
+        points: 1,
+        tiebreaker: false
+      };
+      currentRound.questions.push(currentQuestion);
+      inOptions = false;
+      inItems = false;
+    } else if (currentQuestion && indent === 8) {
+      if (line.startsWith('text:')) {
+        currentQuestion.text = line.replace('text:', '').trim().replace(/^["']|["']$/g, '');
+      } else if (line.startsWith('time:')) {
+        currentQuestion.time = parseInt(line.replace('time:', '').trim());
+      } else if (line.startsWith('points:')) {
+        currentQuestion.points = parseInt(line.replace('points:', '').trim());
+      } else if (line.startsWith('tiebreaker:')) {
+        currentQuestion.tiebreaker = line.includes('true');
+      } else if (line.startsWith('correct:')) {
+        const val = line.replace('correct:', '').trim();
+        if (val.startsWith('[')) {
+          currentQuestion.correct = val.replace(/[\[\]]/g, '').split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+        } else {
+          currentQuestion.correct = parseInt(val);
+        }
+      } else if (line.startsWith('answer:')) {
+        const val = line.replace('answer:', '').trim();
+        currentQuestion.answer = isNaN(val) ? val.replace(/^["']|["']$/g, '') : parseFloat(val);
+      } else if (line.startsWith('tolerance:')) {
+        currentQuestion.tolerance = parseFloat(line.replace('tolerance:', '').trim());
+      } else if (line.startsWith('note:')) {
+        currentQuestion.note = line.replace('note:', '').trim().replace(/^["']|["']$/g, '');
+      } else if (line.startsWith('image:')) {
+        currentQuestion.image = line.replace('image:', '').trim().replace(/^["']|["']$/g, '');
+      } else if (line.startsWith('options:')) {
+        currentQuestion.options = [];
+        inOptions = true;
+        optionIndex = 0;
+      } else if (line.startsWith('items:')) {
+        currentQuestion.items = [];
+        inItems = true;
+        itemIndex = 0;
+      }
+    } else if (inOptions && indent === 10 && line.startsWith('- ')) {
+      currentQuestion.options.push(line.replace('- ', '').trim().replace(/^["']|["']$/g, ''));
+    } else if (inItems && indent === 10 && line.startsWith('- ')) {
+      currentQuestion.items.push(line.replace('- ', '').trim().replace(/^["']|["']$/g, ''));
+    } else if (indent <= 6) {
+      inOptions = false;
+      inItems = false;
+    }
+  }
+}
+
+// ── Initialize ──────────────────────────────────────────────────────────────
+
+renderSidebar();
+renderRoundEditor();
+</script>
+</body>
+</html>

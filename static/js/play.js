@@ -176,7 +176,10 @@ function renderQuestion(state) {
   showScreen('screen-question');
   document.getElementById('play-round-label').textContent = state.round_name;
   document.getElementById('play-q-label').textContent = `Q${state.question_index + 1}`;
-  document.getElementById('play-question-text').textContent = q.text;
+
+  // Question text with optional note for first_letter questions
+  const questionText = q.text + (q.note ? ` (${q.note})` : '');
+  document.getElementById('play-question-text').textContent = questionText;
 
   // Image
   const imgWrap = document.getElementById('play-question-image');

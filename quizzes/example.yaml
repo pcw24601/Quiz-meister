@@ -120,6 +120,18 @@ rounds:
         time: 30
         points: 1
 
+      - type: picture
+        text: "Which famous landmark is this?"
+        image: "https://images.pexels.com/photos/532263/pexels-photo-532263.jpeg?auto=compress&cs=tinysrgb&w=600"
+        options:
+          - "Statue of Liberty"
+          - "Eiffel Tower"
+          - "Colosseum"
+          - "Leaning Tower of Pisa"
+        correct: 1
+        time: 30
+        points: 2
+
       - type: multiple_choice
         text: "Who painted the Mona Lisa?"
         options:
@@ -162,18 +174,21 @@ rounds:
     questions:
       - type: first_letter
         text: "What is the chemical symbol for water?"
+        note: "Water = H2O"
         answer: H
         time: 10
         points: 1
 
       - type: first_letter
         text: "What is the capital of France?"
+        note: "Paris"
         answer: P
         time: 10
         points: 1
 
       - type: first_letter
         text: "What is the largest planet in our solar system?"
+        note: "Jupiter"
         answer: J
         time: 10
         points: 1

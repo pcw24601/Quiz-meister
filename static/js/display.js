@@ -134,7 +134,10 @@ function renderQuestion(state) {
 
   document.getElementById('display-round-name').textContent = state.round_name;
   document.getElementById('display-q-num').textContent = `Q${state.question_index + 1}`;
-  document.getElementById('display-question-text').textContent = q.text;
+
+  // Question text with optional note for first_letter questions
+  const questionText = q.text + (q.note ? ` (${q.note})` : '');
+  document.getElementById('display-question-text').textContent = questionText;
 
   // Image
   const imgWrap = document.getElementById('display-question-image');

@@ -70,6 +70,9 @@ def _parse_question(q: dict, ri: int, qi: int) -> dict:
 
     elif qtype == "first_letter":
         base["answer"] = str(q.get("answer", "")).upper()
+        # Optional note showing the full answer (displayed with question)
+        if q.get("note"):
+            base["note"] = str(q.get("note"))
         # Letters to display in the grid (optional, defaults to A-Z)
         letters = q.get("letters")
         if letters:

@@ -238,7 +238,39 @@ rounds:
 - `time` — seconds for the question timer (default: 30)
 - `points` — points for correct answer (default: 1)
 - `tiebreaker` — mark as tiebreaker question (default: false)
-- `image` — URL to an image to display
+- `image` — URL to an image to display (for picture type)
+- `note` — hint text to display with question (for first_letter type)
+
+### Tiebreaker Questions
+
+Tiebreaker questions are used to break ties when teams have the same score at the end of the quiz. They work differently depending on question type:
+
+**How they work:**
+
+1. Mark a question as `tiebreaker: true` in your YAML file
+2. During the quiz, tiebreaker questions are marked with a "TIEBREAKER" badge
+3. If two or more teams are tied on the leaderboard, the host can use the tiebreaker results to declare a winner
+
+**For numeric questions:**
+- The team with the answer **closest** to the correct answer wins
+- Used when you need a definitive winner (e.g., "How many Jellybeans in this jar?")
+
+**For multiple choice / first_letter:**
+- First correct answer wins (based on submission time)
+- If both wrong, continue to the next tiebreaker question
+
+**Example:**
+```yaml
+- type: numeric
+  text: "In what year was the first Super Bowl played?"
+  answer: 1967
+  tolerance: 0
+  time: 20
+  points: 0  # Points don't matter for tiebreakers
+  tiebreaker: true
+```
+
+**Note:** Tiebreaker questions are typically worth 0 points since they're only used to break ties, not to add to the score.
 
 ## Troubleshooting
 
@@ -297,6 +329,16 @@ PORT=8080 python start.py
 ```
 
 ### Add Your Own Quiz
+
+**Option A: Use the Quiz Editor (Recommended)**
+
+1. Start the server and open `http://localhost:8000/editor`
+2. Click "Add Round" to create rounds
+3. Add questions using the form interface
+4. Click "Save Quiz" to download a YAML file
+5. Move the downloaded file to your `quizzes/` folder
+
+**Option B: Write YAML Manually**
 
 1. Create a `.yaml` file in the `quizzes/` folder
 2. Follow the format in `example.yaml`

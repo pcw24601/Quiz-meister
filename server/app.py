@@ -182,6 +182,11 @@ async def display_page():
     return FileResponse(str(STATIC_DIR / "display.html"))
 
 
+@app.get("/editor")
+async def editor_page():
+    return FileResponse(str(STATIC_DIR / "editor.html"))
+
+
 @app.get("/play")
 async def play_page():
     return FileResponse(str(STATIC_DIR / "play.html"))
@@ -398,6 +403,13 @@ async def session_action(session_id: str, req: ActionRequest):
         session = db.get_session(session_id)
         await _broadcast_state(session_id, session)
         return {"state": "leaderboard"}
+
+    elif action == "back_to_reveal":
+        # Return to the answer reveal for the current question
+        db.update_session(session_id, {"state": "answer_reveal"})
+        session = db.get_session(session_id)
+        await _broadcast_state(session_id, session)
+        return {"state": "answer_reveal"}
 
     elif action == "next_round":
         if ri + 1 >= len(rounds):

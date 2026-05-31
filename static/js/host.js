@@ -234,7 +234,10 @@ function renderQuestion(state) {
   document.getElementById('q-num-label').textContent = `Q ${state.question_index + 1}/${state.total_questions}`;
   document.getElementById('q-type-label').textContent = qtypeLabel(q.type);
   document.getElementById('q-tiebreaker-label').classList.toggle('hidden', !q.tiebreaker);
-  document.getElementById('host-question-text').textContent = q.text;
+
+  // Question text with optional note for first_letter questions
+  const questionText = q.text + (q.note ? ` (${q.note})` : '');
+  document.getElementById('host-question-text').textContent = questionText;
 
   // Image
   const imgWrap = document.getElementById('host-question-image');
@@ -417,6 +420,7 @@ function formatAnswer(answerData, q) {
 }
 
 document.getElementById('btn-show-leaderboard').addEventListener('click', () => action('show_leaderboard'));
+document.getElementById('btn-back-to-reveal').addEventListener('click', () => action('back_to_reveal'));
 document.getElementById('btn-next-question').addEventListener('click', () => action('start_question'));
 
 // ── Score Override Modal ───────────────────────────────────────────────────────
