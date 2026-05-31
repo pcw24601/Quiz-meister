@@ -207,6 +207,13 @@ html, body {
   box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
+.form-hint {
+  margin: 6px 0 0 0;
+  font-size: 0.75rem;
+  color: var(--neutral-500);
+  line-height: 1.4;
+}
+
 /* ── Badge ────────────────────────────────────────────────────────────────────*/
 
 .badge {

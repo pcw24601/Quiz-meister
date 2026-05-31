@@ -210,6 +210,7 @@ async def get_config():
 
 class CreateSessionRequest(BaseModel):
     quiz_file: str
+    bonus_points: int = 0
 
 
 @app.post("/api/sessions")
@@ -223,11 +224,12 @@ async def create_session(req: CreateSessionRequest):
         raise HTTPException(400, f"Invalid quiz file: {e}")
 
     host_secret = secrets.token_urlsafe(16)
-    session = db.create_session(req.quiz_file, quiz_data, host_secret)
+    session = db.create_session(req.quiz_file, quiz_data, host_secret, req.bonus_points)
     return {
         "session_id": session["id"],
         "host_secret": host_secret,
         "quiz_title": quiz_data["title"],
+        "bonus_points": req.bonus_points,
     }
 
 
@@ -381,18 +383,56 @@ async def session_action(session_id: str, req: ActionRequest):
 
         cancel_timer(session_id)
 
-        # Score numeric questions now
+        # Score the question
         current_round = rounds[ri] if ri < len(rounds) else None
         if current_round:
             question = current_round["questions"][qi]
+            answers = db.get_answers(session_id, ri, qi)
+            bonus_pts = session.get("bonus_points", 0)
+
             if question["type"] == "numeric":
-                answers = db.get_answers(session_id, ri, qi)
+                # Numeric: closest wins
                 ta_list = [{"team_id": a["team_id"], "answer_data": a["answer_data"]} for a in answers]
                 scores = quiz_loader.score_numeric_round(ta_list, question)
+
+                # Apply bonus points to closest answers
+                if bonus_pts > 0:
+                    correct_val = float(question["answer"])
+                    distances = []
+                    for a in answers:
+                        try:
+                            val = float(a["answer_data"][0]) if a["answer_data"] else None
+                        except (ValueError, TypeError):
+                            val = None
+                        if val is not None:
+                            distances.append((abs(val - correct_val), a["team_id"], a["id"]))
+                    distances.sort(key=lambda x: x[0])
+
+                    # Award bonus points (N, N-1, ..., 1) to closest correct
+                    for i, (dist, tid, aid) in enumerate(distances):
+                        if i < bonus_pts and scores.get(tid, 0) > 0:
+                            bonus = bonus_pts - i
+                            scores[tid] = scores.get(tid, 0) + bonus
+
                 for answer in answers:
                     if not answer["score_overridden"]:
                         new_score = scores.get(answer["team_id"], 0)
                         db.override_score(answer["id"], new_score)
+            else:
+                # Other types: fastest correct gets bonus
+                if bonus_pts > 0:
+                    # Sort correct answers by submission time
+                    correct_answers = [
+                        a for a in answers
+                        if not a["score_overridden"] and a["score"] > 0
+                    ]
+                    correct_answers.sort(key=lambda x: x.get("submitted_at", ""))
+
+                    # Award bonus to top N fastest correct answers
+                    for i, answer in enumerate(correct_answers):
+                        if i < bonus_pts:
+                            bonus = bonus_pts - i
+                            db.override_score(answer["id"], answer["score"] + bonus)
 
         db.update_session(session_id, {"state": "answer_reveal"})
         session = db.get_session(session_id)
@@ -411,6 +451,14 @@ async def session_action(session_id: str, req: ActionRequest):
         session = db.get_session(session_id)
         await _broadcast_state(session_id, session)
         return {"state": "answer_reveal"}
+
+    elif action == "restart_question":
+        # Clear all answers for current question and go back to lobby
+        db.clear_answers(session_id, ri, qi)
+        db.update_session(session_id, {"state": "lobby"})
+        session = db.get_session(session_id)
+        await _broadcast_state(session_id, session)
+        return {"state": "lobby"}
 
     elif action == "next_round":
         if ri + 1 >= len(rounds):

@@ -486,6 +486,16 @@
 .answers-table tr.correct-row td { background: rgba(34, 197, 94, 0.08); }
 .answers-table tr.correct-row td:first-child { border-left: 4px solid var(--success-500); }
 
+.rank-cell {
+  font-weight: 700;
+  text-align: center;
+  min-width: 50px;
+}
+
+.rank-first { color: #ffd700; }
+.rank-second { color: #c0c0c0; }
+.rank-third { color: #cd7f32; }
+
 .score-correct { color: var(--success-600); font-weight: 700; }
 .score-zero    { color: var(--neutral-400); }
 .score-overridden { color: var(--accent-600); font-weight: 700; }

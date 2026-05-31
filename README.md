@@ -243,7 +243,16 @@ rounds:
 
 ### Picture Questions
 
-For picture questions, you can use either external URLs or local files:
+Any question type can include an image. The `picture` type is specifically for questions where the image IS the question, but you can add images to other types too.
+
+**Add image to any question:**
+```yaml
+- type: numeric
+  text: "How many stars are in this cluster?"
+  image: "/quiz-images/star-cluster.jpg"
+  answer: 150
+  time: 30
+```
 
 **External URL:**
 ```yaml

@@ -78,6 +78,7 @@ document.getElementById('btn-create-session').addEventListener('click', async ()
   const btn = document.getElementById('btn-create-session');
   if (btn.disabled) return;
   const file = document.getElementById('quiz-select').value;
+  const bonusPoints = parseInt(document.getElementById('bonus-points').value) || 0;
   if (!file) { showToast('Select a quiz file first'); return; }
   btn.disabled = true;
   btn.textContent = 'Starting...';
@@ -85,7 +86,7 @@ document.getElementById('btn-create-session').addEventListener('click', async ()
     const res = await fetch('/api/sessions', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({quiz_file: file}),
+      body: JSON.stringify({quiz_file: file, bonus_points: bonusPoints}),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -340,20 +341,42 @@ function renderReveal(state) {
   document.getElementById('reveal-question-text').textContent = q.text;
   document.getElementById('reveal-correct-answer').innerHTML = correctAnswerHTML(q);
 
-  // Build answers table
+  // Build answers table with ranking
   const teams = state.teams;
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]));
   const answers = state.answers || [];
 
+  // Sort answers: correct first (by score desc), then by submission time
+  const sortedAnswers = [...answers].sort((a, b) => {
+    // Higher score first
+    if (b.score !== a.score) return b.score - a.score;
+    // Earlier submission first (if we had timestamp)
+    return 0;
+  });
+
+  // Assign ranks
+  let rank = 1;
+  let lastScore = null;
+  const rankedAnswers = sortedAnswers.map((a, i) => {
+    if (lastScore !== a.score) {
+      rank = i + 1;
+      lastScore = a.score;
+    }
+    return { ...a, rank: a.score > 0 ? rank : '-' };
+  });
+
   const tbody = document.getElementById('answers-tbody');
-  tbody.innerHTML = answers.map(a => {
+  tbody.innerHTML = rankedAnswers.map(a => {
     const team = teamMap[a.team_id] || {name:'Unknown'};
     const answerStr = formatAnswer(a.answer_data, q);
     const isCorrect = a.score > 0 && !a.score_overridden;
     const scoreClass = a.score_overridden ? 'score-overridden' : a.score > 0 ? 'score-correct' : 'score-zero';
     const rowClass = isCorrect ? 'correct-row' : '';
+    const rankDisplay = a.rank === '-' ? '-' : (a.rank <= 3 ? ['1st','2nd','3rd'][a.rank-1] : `${a.rank}th`);
+    const rankClass = a.rank === 1 ? 'rank-first' : a.rank === 2 ? 'rank-second' : a.rank === 3 ? 'rank-third' : '';
     return `
       <tr class="${rowClass}">
+        <td class="rank-cell ${rankClass}">${rankDisplay}</td>
         <td>${escHtml(team.name)}</td>
         <td>${escHtml(answerStr)}</td>
         <td class="${scoreClass}">${a.score}</td>
@@ -371,6 +394,7 @@ function renderReveal(state) {
   teams.filter(t => !answeredIds.has(t.id)).forEach(t => {
     tbody.innerHTML += `
       <tr style="opacity:0.5">
+        <td class="rank-cell">-</td>
         <td>${escHtml(t.name)}</td>
         <td><em>No answer</em></td>
         <td class="score-zero">0</td>
@@ -424,6 +448,11 @@ function formatAnswer(answerData, q) {
 document.getElementById('btn-show-leaderboard').addEventListener('click', () => action('show_leaderboard'));
 document.getElementById('btn-back-to-reveal').addEventListener('click', () => action('back_to_reveal'));
 document.getElementById('btn-next-question').addEventListener('click', () => action('start_question'));
+document.getElementById('btn-restart-question').addEventListener('click', () => {
+  if (confirm('Restart this question? All current answers will be deleted.')) {
+    action('restart_question');
+  }
+});
 
 // ── Score Override Modal ───────────────────────────────────────────────────────
 

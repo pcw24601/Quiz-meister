@@ -53,6 +53,8 @@ rounds:
         tolerance: 3
         time: 30
         points: 1
+        # Note: image can be added to any question type, not just 'picture'
+        # image: "/quiz-images/africa-map.jpg"
 
   - name: "Science & Nature"
     questions:

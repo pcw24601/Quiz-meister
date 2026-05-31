@@ -16,7 +16,8 @@ _answers: dict[str, dict] = {}    # answer_id → answer
 
 # ── Sessions ──────────────────────────────────────────────────────────────────
 
-def create_session(quiz_file: str, quiz_data: dict, host_secret: str) -> dict:
+def create_session(quiz_file: str, quiz_data: dict, host_secret: str,
+                   bonus_points: int = 0) -> dict:
     session_id = str(uuid.uuid4())
     session = {
         "id": session_id,
@@ -27,6 +28,7 @@ def create_session(quiz_file: str, quiz_data: dict, host_secret: str) -> dict:
         "current_question_index": 0,
         "host_secret": host_secret,
         "timer_ends_at": None,
+        "bonus_points": bonus_points,
     }
     _sessions[session_id] = session
     return session
@@ -75,7 +77,8 @@ def update_team(team_id: str, data: dict) -> dict:
 # ── Answers ───────────────────────────────────────────────────────────────────
 
 def submit_answer(session_id: str, team_id: str, round_index: int,
-                  question_index: int, answer_data: list, score: int) -> dict:
+                  question_index: int, answer_data: list, score: int,
+                  submitted_at: str = None) -> dict:
     # Prevent double-submit
     for answer in _answers.values():
         if (answer["session_id"] == session_id and
@@ -84,6 +87,9 @@ def submit_answer(session_id: str, team_id: str, round_index: int,
                 answer["question_index"] == question_index):
             return answer
     answer_id = str(uuid.uuid4())
+    if submitted_at is None:
+        from datetime import datetime, timezone
+        submitted_at = datetime.now(timezone.utc).isoformat()
     answer = {
         "id": answer_id,
         "session_id": session_id,
@@ -93,6 +99,7 @@ def submit_answer(session_id: str, team_id: str, round_index: int,
         "answer_data": answer_data,
         "score": score,
         "score_overridden": False,
+        "submitted_at": submitted_at,
     }
     _answers[answer_id] = answer
     return answer
@@ -114,6 +121,19 @@ def override_score(answer_id: str, score: int) -> dict:
         answer["score"] = score
         answer["score_overridden"] = True
     return answer or {}
+
+
+def clear_answers(session_id: str, round_index: int, question_index: int) -> int:
+    """Delete all answers for a specific question. Returns count deleted."""
+    to_delete = [
+        aid for aid, a in _answers.items()
+        if (a["session_id"] == session_id and
+            a["round_index"] == round_index and
+            a["question_index"] == question_index)
+    ]
+    for aid in to_delete:
+        del _answers[aid]
+    return len(to_delete)
 
 
 def get_leaderboard(session_id: str) -> list[dict]:

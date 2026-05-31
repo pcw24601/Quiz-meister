@@ -558,14 +558,13 @@ function renderQuestionCard(q, idx) {
     `;
   }
 
-  if (q.type === 'picture') {
-    extraFields += `
-      <div class="form-group full">
-        <label>Image URL</label>
-        <input type="url" value="${q.image || ''}" placeholder="https://..." onchange="updateQuestion(${idx}, 'image', this.value)">
-      </div>
-    `;
-  }
+  // Image can be added to any question type
+  extraFields += `
+    <div class="form-group full">
+      <label>Image URL (optional)</label>
+      <input type="url" value="${q.image || ''}" placeholder="https://... or /quiz-images/..." onchange="updateQuestion(${idx}, 'image', this.value)">
+    </div>
+  `;
 
   return `
     <div class="question-card" data-index="${idx}">
@@ -831,7 +830,8 @@ function generateYAML() {
         }
       }
 
-      if (q.type === 'picture' && q.image) {
+      // Image can be on any question type
+      if (q.image) {
         yaml += `        image: "${q.image}"\n`;
       }
 

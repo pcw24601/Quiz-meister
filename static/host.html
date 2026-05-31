@@ -26,6 +26,16 @@
         </select>
       </div>
       <div id="quiz-preview" class="quiz-preview hidden"></div>
+      <div class="form-group">
+        <label for="bonus-points">Speed Bonus Points</label>
+        <select id="bonus-points">
+          <option value="0">No bonus (0)</option>
+          <option value="3">Top 3 get +3, +2, +1</option>
+          <option value="5" selected>Top 5 get +5, +4, +3, +2, +1</option>
+          <option value="10">Top 10 get +10, +9, ..., +1</option>
+        </select>
+        <p class="form-hint">Fastest correct answers get bonus points. For numeric questions, closest answers win.</p>
+      </div>
       <button class="btn btn-primary btn-lg" id="btn-create-session">Start Session</button>
       <div class="divider">or resume</div>
       <div class="form-group">
@@ -147,6 +157,7 @@
           <table class="answers-table" id="answers-table">
             <thead>
               <tr>
+                <th>Rank</th>
                 <th>Team</th>
                 <th>Answer</th>
                 <th>Score</th>
@@ -158,6 +169,7 @@
         </div>
 
         <div class="control-buttons">
+          <button class="btn btn-danger" id="btn-restart-question">Restart Question</button>
           <button class="btn btn-secondary" id="btn-show-leaderboard">Show Leaderboard</button>
           <button class="btn btn-primary" id="btn-next-question">Next Question</button>
         </div>
