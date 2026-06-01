@@ -675,23 +675,36 @@ function moveQuestion(idx, direction) {
 
 function changeQuestionType(idx, newType) {
   const q = quiz.rounds[activeRoundIndex].questions[idx];
-  const base = { type: newType, text: q.text, time: q.time, points: q.points, tiebreaker: q.tiebreaker };
+  const base = { type: newType, text: q.text, time: q.time, points: q.points, tiebreaker: q.tiebreaker, image: q.image || '' };
 
   if (newType === 'multiple_choice' || newType === 'picture') {
     base.options = q.options || ['', '', '', ''];
-    base.correct = 0;
-    if (newType === 'picture') base.image = '';
+    // Preserve correct if coming from a compatible type
+    if (q.type === 'multiple_choice' || q.type === 'picture') {
+      base.correct = q.correct || 0;
+    } else if (q.type === 'select_many' && q.correct && q.correct.length > 0) {
+      base.correct = q.correct[0]; // Use first correct as single correct
+    } else {
+      base.correct = 0;
+    }
   } else if (newType === 'select_many') {
     base.options = q.options || ['', '', '', ''];
-    base.correct = [];
+    // Preserve correct if coming from a compatible type
+    if (q.type === 'select_many') {
+      base.correct = q.correct || [];
+    } else if ((q.type === 'multiple_choice' || q.type === 'picture') && q.correct !== undefined) {
+      base.correct = [q.correct]; // Convert single to array
+    } else {
+      base.correct = [];
+    }
   } else if (newType === 'order') {
-    base.items = ['', '', ''];
+    base.items = q.items || ['', '', ''];
   } else if (newType === 'numeric') {
-    base.answer = 0;
-    base.tolerance = 0;
+    base.answer = q.answer || 0;
+    base.tolerance = q.tolerance || 0;
   } else if (newType === 'first_letter') {
-    base.answer = 'A';
-    base.note = '';
+    base.answer = q.answer || 'A';
+    base.note = q.note || '';
   }
 
   quiz.rounds[activeRoundIndex].questions[idx] = base;
@@ -711,7 +724,21 @@ function addOption(qIdx) {
 }
 
 function removeOption(qIdx, oIdx) {
-  quiz.rounds[activeRoundIndex].questions[qIdx].options.splice(oIdx, 1);
+  const q = quiz.rounds[activeRoundIndex].questions[qIdx];
+  q.options.splice(oIdx, 1);
+  // Adjust correct index after removal
+  if (q.type === 'select_many') {
+    if (!q.correct) q.correct = [];
+    q.correct = q.correct
+      .filter(c => c !== oIdx)
+      .map(c => c > oIdx ? c - 1 : c);
+  } else {
+    if (q.correct === oIdx) {
+      q.correct = 0; // Reset if removed option was correct
+    } else if (q.correct > oIdx) {
+      q.correct--; // Shift down if correct was after removed
+    }
+  }
   renderQuestions();
 }
 
@@ -767,25 +794,96 @@ document.getElementById('btn-add-question').addEventListener('click', addQuestio
 
 document.getElementById('btn-save').addEventListener('click', async () => {
   const yaml = generateYAML();
-  const blob = new Blob([yaml], { type: 'text/yaml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
-  a.click();
-  URL.revokeObjectURL(url);
+  const filename = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+
+  // Try File System Access API (lets user pick save location)
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+          description: 'YAML Files',
+          accept: { 'text/yaml': ['.yaml', '.yml'] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(yaml);
+      await writable.close();
+      showToast('Quiz saved!');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // User cancelled
+      // Fall through to server save
+    }
+  }
+
+  // Fallback: save to server's quizzes folder
+  try {
+    const res = await fetch('/api/quizzes/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content: yaml })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(`Saved as ${data.filename} on server`);
+    } else {
+      throw new Error('Save failed');
+    }
+  } catch (e) {
+    // Final fallback: download
+    downloadYAML(yaml, filename);
+  }
 });
 
-document.getElementById('btn-save-yaml').addEventListener('click', () => {
+document.getElementById('btn-save-yaml').addEventListener('click', async () => {
   const yaml = generateYAML();
+  const filename = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+          description: 'YAML Files',
+          accept: { 'text/yaml': ['.yaml', '.yml'] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(yaml);
+      await writable.close();
+      showToast('Quiz saved!');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  downloadYAML(yaml, filename);
+});
+
+function downloadYAML(yaml, filename) {
   const blob = new Blob([yaml], { type: 'text/yaml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-});
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('editor-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'editor-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;background:#22c55e;color:#fff;border-radius:8px;font-size:0.9rem;font-weight:500;z-index:9999;transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
 
 document.getElementById('btn-open').addEventListener('click', () => {
   const input = document.createElement('input');

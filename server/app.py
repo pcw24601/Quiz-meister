@@ -208,6 +208,26 @@ async def get_config():
     return {"player_url": f"http://{local_ip}:{port}/play"}
 
 
+class SaveQuizRequest(BaseModel):
+    filename: str
+    content: str
+
+
+@app.post("/api/quizzes/save")
+async def save_quiz(req: SaveQuizRequest):
+    # Sanitize filename
+    filename = req.filename.replace("..", "").replace("/", "").replace("\\", "")
+    if not filename.endswith((".yaml", ".yml")):
+        filename += ".yaml"
+    path = QUIZZES_DIR / filename
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return {"ok": True, "filename": filename}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to save: {e}")
+
+
 class CreateSessionRequest(BaseModel):
     quiz_file: str
     bonus_points: int = 0
