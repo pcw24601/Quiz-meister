@@ -446,6 +446,7 @@ let quiz = {
   rounds: []
 };
 let activeRoundIndex = -1;
+let currentFilename = '';
 
 // ── Renderers ────────────────────────────────────────────────────────────────
 
@@ -501,14 +502,14 @@ function renderQuestionCard(q, idx) {
         <div class="options-container">
           ${(q.options || []).map((opt, oi) => `
             <div class="option-row">
-              <button class="btn-correct ${isMultiple ? 'multiple' : ''} ${(isMultiple ? q.correct.includes(oi) : q.correct === oi) ? 'active' : ''}"
+              <button type="button" class="btn-correct ${isMultiple ? 'multiple' : ''} ${(isMultiple ? q.correct.includes(oi) : q.correct === oi) ? 'active' : ''}"
                       onclick="toggleCorrect(${idx}, ${oi})" title="Mark as correct"></button>
-              <input type="text" value="${escapeHtml(opt)}" onchange="updateOption(${idx}, ${oi}, this.value)"
+              <input type="text" value="${escapeHtml(opt)}" oninput="updateOption(${idx}, ${oi}, this.value)"
                      class="${(isMultiple ? q.correct.includes(oi) : q.correct === oi) ? 'correct' : ''}">
-              <button class="btn-icon danger" onclick="removeOption(${idx}, ${oi})" title="Remove option">x</button>
+              <button type="button" class="btn-icon danger" onclick="removeOption(${idx}, ${oi})" title="Remove option">x</button>
             </div>
           `).join('')}
-          <button class="btn-add-option" onclick="addOption(${idx})">+ Add Option</button>
+          <button type="button" class="btn-add-option" onclick="addOption(${idx})">+ Add Option</button>
         </div>
       </div>
     `;
@@ -522,11 +523,11 @@ function renderQuestionCard(q, idx) {
           ${(q.items || []).map((item, oi) => `
             <div class="option-row">
               <span style="color:var(--editor-muted);width:24px">${oi + 1}.</span>
-              <input type="text" value="${escapeHtml(item)}" onchange="updateOrderItem(${idx}, ${oi}, this.value)">
-              <button class="btn-icon danger" onclick="removeOrderItem(${idx}, ${oi})" title="Remove">x</button>
+              <input type="text" value="${escapeHtml(item)}" oninput="updateOrderItem(${idx}, ${oi}, this.value)">
+              <button type="button" class="btn-icon danger" onclick="removeOrderItem(${idx}, ${oi})" title="Remove">x</button>
             </div>
           `).join('')}
-          <button class="btn-add-option" onclick="addOrderItem(${idx})">+ Add Item</button>
+          <button type="button" class="btn-add-option" onclick="addOrderItem(${idx})">+ Add Item</button>
         </div>
       </div>
     `;
@@ -536,11 +537,11 @@ function renderQuestionCard(q, idx) {
     extraFields = `
       <div class="form-group">
         <label>Correct Answer</label>
-        <input type="number" value="${q.answer || 0}" onchange="updateQuestion(${idx}, 'answer', parseFloat(this.value))">
+        <input type="number" value="${q.answer || 0}" oninput="updateQuestion(${idx}, 'answer', parseFloat(this.value))">
       </div>
       <div class="form-group">
         <label>Tolerance (optional)</label>
-        <input type="number" value="${q.tolerance || 0}" onchange="updateQuestion(${idx}, 'tolerance', parseFloat(this.value))">
+        <input type="number" value="${q.tolerance || 0}" oninput="updateQuestion(${idx}, 'tolerance', parseFloat(this.value))">
       </div>
     `;
   }
@@ -549,11 +550,11 @@ function renderQuestionCard(q, idx) {
     extraFields = `
       <div class="form-group">
         <label>Correct First Letter</label>
-        <input type="text" maxlength="1" value="${q.answer || 'A'}" onchange="updateQuestion(${idx}, 'answer', this.value.toUpperCase())" style="text-transform:uppercase">
+        <input type="text" maxlength="1" value="${q.answer || 'A'}" oninput="updateQuestion(${idx}, 'answer', this.value.toUpperCase())" style="text-transform:uppercase">
       </div>
       <div class="form-group">
         <label>Full Answer (displayed as hint)</label>
-        <input type="text" value="${q.note || ''}" placeholder="e.g., Paris" onchange="updateQuestion(${idx}, 'note', this.value)">
+        <input type="text" value="${q.note || ''}" placeholder="e.g., Paris" oninput="updateQuestion(${idx}, 'note', this.value)">
       </div>
     `;
   }
@@ -562,7 +563,7 @@ function renderQuestionCard(q, idx) {
   extraFields += `
     <div class="form-group full">
       <label>Image URL (optional)</label>
-      <input type="url" value="${q.image || ''}" placeholder="https://... or /quiz-images/..." onchange="updateQuestion(${idx}, 'image', this.value)">
+      <input type="url" value="${q.image || ''}" placeholder="https://... or /quiz-images/..." oninput="updateQuestion(${idx}, 'image', this.value)">
     </div>
   `;
 
@@ -574,26 +575,26 @@ function renderQuestionCard(q, idx) {
           ${typeOptions}
         </select>
         <div class="question-actions">
-          <button class="btn-icon" onclick="moveQuestion(${idx}, -1)" title="Move up">u</button>
-          <button class="btn-icon" onclick="moveQuestion(${idx}, 1)" title="Move down">d</button>
-          <button class="btn-icon danger" onclick="deleteQuestion(${idx})" title="Delete">x</button>
+          <button type="button" class="btn-icon" onclick="moveQuestion(${idx}, -1)" title="Move up">u</button>
+          <button type="button" class="btn-icon" onclick="moveQuestion(${idx}, 1)" title="Move down">d</button>
+          <button type="button" class="btn-icon danger" onclick="deleteQuestion(${idx})" title="Delete">x</button>
         </div>
       </div>
       <div class="question-body">
         <div class="form-row">
           <div class="form-group full">
             <label>Question Text</label>
-            <textarea onchange="updateQuestion(${idx}, 'text', this.value)">${escapeHtml(q.text || '')}</textarea>
+            <textarea oninput="updateQuestion(${idx}, 'text', this.value)">${escapeHtml(q.text || '')}</textarea>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>Time (seconds)</label>
-            <input type="number" value="${q.time || 30}" onchange="updateQuestion(${idx}, 'time', parseInt(this.value))">
+            <input type="number" value="${q.time || 30}" oninput="updateQuestion(${idx}, 'time', parseInt(this.value))">
           </div>
           <div class="form-group">
             <label>Points</label>
-            <input type="number" value="${q.points || 1}" onchange="updateQuestion(${idx}, 'points', parseInt(this.value))">
+            <input type="number" value="${q.points || 1}" oninput="updateQuestion(${idx}, 'points', parseInt(this.value))">
           </div>
         </div>
         <div class="form-row">
@@ -794,7 +795,7 @@ document.getElementById('btn-add-question').addEventListener('click', addQuestio
 
 document.getElementById('btn-save').addEventListener('click', async () => {
   const yaml = generateYAML();
-  const filename = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+  const filename = currentFilename || (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
 
   // Try File System Access API (lets user pick save location)
   if (window.showSaveFilePicker) {
@@ -826,6 +827,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.ok) {
+      currentFilename = data.filename;
       showToast(`Saved as ${data.filename} on server`);
     } else {
       throw new Error('Save failed');
@@ -838,7 +840,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
 
 document.getElementById('btn-save-yaml').addEventListener('click', async () => {
   const yaml = generateYAML();
-  const filename = (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
+  const filename = currentFilename || (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
 
   if (window.showSaveFilePicker) {
     try {
@@ -892,6 +894,7 @@ document.getElementById('btn-open').addEventListener('click', () => {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    currentFilename = file.name;
     const text = await file.text();
     parseYAML(text);
     activeRoundIndex = 0;
@@ -942,7 +945,7 @@ function generateYAML() {
 
       if (q.type === 'numeric') {
         yaml += `        answer: ${q.answer}\n`;
-        if (q.tolerance) yaml += `        tolerance: ${q.tolerance}\n`;
+        if (q.tolerance !== undefined && q.tolerance !== null && q.tolerance !== '') yaml += `        tolerance: ${q.tolerance}\n`;
       }
 
       if (q.type === 'first_letter') {
