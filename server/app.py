@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -254,6 +254,30 @@ async def save_quiz(req: SaveQuizRequest):
         return {"ok": True, "filename": filename}
     except Exception as e:
         raise HTTPException(500, f"Failed to save: {e}")
+
+
+@app.post("/api/quizzes/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    """Accept an image upload and save it to quizzes/images/.
+    Returns the static URL path for use in quiz YAML files.
+    The client should compress/resize images before uploading.
+    """
+    # Sanitize and make filename unique
+    original_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
+    suffix = Path(original_name).suffix.lower() or ".jpg"
+    if suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        raise HTTPException(400, "Unsupported image type. Use jpg, png, gif, or webp.")
+    unique_name = f"{uuid.uuid4().hex}{suffix}"
+    images_dir = QUIZZES_DIR / "images"
+    images_dir.mkdir(exist_ok=True)
+    dest = images_dir / unique_name
+    try:
+        content = await file.read()
+        with open(dest, "wb") as f:
+            f.write(content)
+        return {"ok": True, "path": f"/quiz-images/{unique_name}"}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to save image: {e}")
 
 
 class CreateSessionRequest(BaseModel):
