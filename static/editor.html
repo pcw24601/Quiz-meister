@@ -383,6 +383,71 @@ body {
 /* Helpers */
 .hidden { display: none !important; }
 
+/* Image Preview */
+.image-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-preview-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.image-preview-thumb {
+  width: 100px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-bg);
+  flex-shrink: 0;
+  display: none;
+}
+
+.image-preview-thumb.visible {
+  display: block;
+}
+
+.image-url-input-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.image-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-upload {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed var(--editor-border);
+  border-radius: 6px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-upload:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-500);
+}
+
+.image-upload-status {
+  font-size: 0.75rem;
+  color: var(--editor-muted);
+  min-height: 1em;
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;
@@ -572,14 +637,44 @@ function renderQuestionCard(q, idx) {
   }
 
   // Answer info (optional) and image can be added to any question type
+  const imgThumbStyle = q.image ? 'class="image-preview-thumb visible"' : 'class="image-preview-thumb"';
   extraFields += `
     <div class="form-group full">
       <label>Answer Info (optional)</label>
       <textarea oninput="updateQuestion(${idx}, 'answer_info', this.value)">${escapeHtml(q.answer_info || '')}</textarea>
     </div>
-    <div class="form-group full">
-      <label>Image URL (optional)</label>
-      <input type="url" value="${q.image || ''}" placeholder="https://... or /quiz-images/..." oninput="updateQuestion(${idx}, 'image', this.value)">
+    <div class="form-group full image-field-group">
+      <label>Image (optional)</label>
+      <div class="image-preview-wrap">
+        <img id="img-preview-${idx}" ${imgThumbStyle} src="${escapeHtml(q.image || '')}" alt="Preview">
+        <div class="image-url-input-wrap">
+          <div class="image-upload-row">
+            <input type="url" id="img-url-${idx}" value="${escapeHtml(q.image || '')}" placeholder="https://... or /quiz-images/..."
+                   oninput="updateQuestion(${idx}, 'image', this.value); updateImagePreview(${idx}, this.value)" style="flex:1">
+            <button type="button" class="btn-upload" onclick="triggerImageUpload(${idx})">⬆ Upload...</button>
+          </div>
+          <span class="image-upload-status" id="img-status-${idx}"></span>
+        </div>
+      </div>
+    </div>
+  `
+  // Image can be added to any question type
+  const imgThumbStyle = q.image ? 'class="image-preview-thumb visible"' : 'class="image-preview-thumb"';
+  extraFields += `
+    <div class="form-group full image-field-group">
+      <label>Image (optional)</label>
+      <div class="image-preview-wrap">
+        <img id="img-preview-${idx}" ${imgThumbStyle} src="${escapeHtml(q.image || '')}" alt="Preview">
+        <div class="image-url-input-wrap">
+          <div class="image-upload-row">
+            <input type="url" id="img-url-${idx}" value="${escapeHtml(q.image || '')}" placeholder="https://... or /quiz-images/..."
+                   oninput="updateQuestion(${idx}, 'image', this.value); updateImagePreview(${idx}, this.value)" style="flex:1">
+            <button type="button" class="btn-upload" onclick="triggerImageUpload(${idx})">⬆ Upload...</button>
+          </div>
+          <span class="image-upload-status" id="img-status-${idx}"></span>
+        </div>
+      </div>
+>>>>>>> 52f585b (feat(editor): add image upload with canvas compression and preview thumbnail)
     </div>
   `;
 
@@ -794,6 +889,90 @@ function removeOrderItem(qIdx, iIdx) {
 
 function updateOrderItem(qIdx, iIdx, value) {
   quiz.rounds[activeRoundIndex].questions[qIdx].items[iIdx] = value;
+}
+
+// ── Image Upload & Preview ───────────────────────────────────────────────────
+
+function updateImagePreview(qIdx, url) {
+  const thumb = document.getElementById(`img-preview-${qIdx}`);
+  if (!thumb) return;
+  if (url) {
+    thumb.src = url;
+    thumb.classList.add('visible');
+  } else {
+    thumb.src = '';
+    thumb.classList.remove('visible');
+  }
+}
+
+function triggerImageUpload(qIdx) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) handleImageUpload(qIdx, file);
+  };
+  input.click();
+}
+
+async function resizeAndCompressImage(file, maxWidth = 800, maxHeight = 600, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        // Scale down proportionally
+        if (width > maxWidth || height > maxHeight) {
+          const scale = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Canvas toBlob failed'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageUpload(qIdx, file) {
+  const statusEl = document.getElementById(`img-status-${qIdx}`);
+  if (statusEl) statusEl.textContent = 'Compressing...';
+
+  try {
+    const compressed = await resizeAndCompressImage(file);
+    const sizeKB = Math.round(compressed.size / 1024);
+    if (statusEl) statusEl.textContent = `Uploading (${sizeKB}KB)...`;
+
+    const formData = new FormData();
+    formData.append('file', compressed, file.name.replace(/\.[^.]+$/, '.jpg'));
+
+    const res = await fetch('/api/quizzes/upload-image', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!data.ok) throw new Error('Upload failed');
+
+    // Update state and UI
+    quiz.rounds[activeRoundIndex].questions[qIdx].image = data.path;
+    const urlInput = document.getElementById(`img-url-${qIdx}`);
+    if (urlInput) urlInput.value = data.path;
+    updateImagePreview(qIdx, data.path);
+    if (statusEl) statusEl.textContent = `Saved locally (${sizeKB}KB)`;
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+  }
 }
 
 // ── Save/Load ────────────────────────────────────────────────────────────────
