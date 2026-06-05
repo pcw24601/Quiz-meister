@@ -405,8 +405,8 @@ body {
     <h1><span style="color: var(--primary-500)">&#9670;</span> Quiz Editor</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" id="btn-open">Open...</button>
-      <button class="btn btn-secondary" id="btn-save-yaml">Save as YAML</button>
-      <button class="btn btn-success" id="btn-save">Save Quiz</button>
+      <button class="btn btn-secondary" id="btn-save-yaml">Save Local</button>
+      <button class="btn btn-success" id="btn-save">Save</button>
     </div>
   </header>
 
@@ -828,28 +828,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   const yaml = generateYAML();
   const filename = currentFilename || (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
 
-  // Try File System Access API (lets user pick save location)
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types: [{
-          description: 'YAML Files',
-          accept: { 'text/yaml': ['.yaml', '.yml'] }
-        }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(yaml);
-      await writable.close();
-      showToast('Quiz saved!');
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // User cancelled
-      // Fall through to server save
-    }
-  }
-
-  // Fallback: save to server's quizzes folder
+  // Save to server's quizzes folder directly
   try {
     const res = await fetch('/api/quizzes/save', {
       method: 'POST',
@@ -864,8 +843,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       throw new Error('Save failed');
     }
   } catch (e) {
-    // Final fallback: download
-    downloadYAML(yaml, filename);
+    showToast(`Save failed: ${e.message}`);
   }
 });
 
