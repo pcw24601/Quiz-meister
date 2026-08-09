@@ -2,6 +2,8 @@ title: "General Knowledge Quiz Night"
 
 rounds:
   - name: "Geography"
+    instructions: "Test your knowledge of countries, capitals, and landmarks from around the globe!"
+    image: "/quiz-images/round_geography.jpg"
     questions:
       - type: multiple_choice
         text: "What is the capital of Australia?"

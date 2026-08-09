@@ -632,3 +632,70 @@
   from { transform: scale(0.5); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
 }
+
+/* ── Round Intro Screen ─────────────────────────────────────────────────────── */
+#screen-round-intro.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  background: linear-gradient(160deg, var(--neutral-50) 0%, var(--primary-50) 100%);
+}
+
+.round-intro-player-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  text-align: center;
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 480px;
+}
+
+.player-round-badge {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+  display: inline-block;
+}
+
+.round-intro-player-card {
+  width: 100%;
+  padding: var(--space-6);
+}
+
+.player-round-instructions {
+  font-size: 0.9375rem;
+  color: var(--neutral-600);
+  line-height: 1.5;
+  margin-top: var(--space-3);
+}
+
+.player-round-image {
+  margin-top: var(--space-3);
+  max-height: 200px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--neutral-200);
+}
+
+.player-round-image img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.waiting-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

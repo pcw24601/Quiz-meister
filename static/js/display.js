@@ -73,6 +73,7 @@ function handleState(state) {
 
   switch(state.state) {
     case 'lobby':         renderLobby(state); break;
+    case 'round_intro':   renderRoundIntro(state); break;
     case 'question':      renderQuestion(state); break;
     case 'answer_reveal': renderReveal(state); break;
     case 'leaderboard':   renderLeaderboard(state); break;
@@ -123,6 +124,32 @@ function renderLobby(state) {
       grid.appendChild(chip);
     }
   });
+}
+
+// ── Round Intro ────────────────────────────────────────────────────────────────
+
+function renderRoundIntro(state) {
+  showState('display-round-intro');
+  document.getElementById('display-quiz-title-intro').textContent = state.quiz_title;
+  document.getElementById('display-round-number').textContent = `Round ${state.round_index + 1} of ${state.total_rounds}`;
+  document.getElementById('display-round-title').textContent = state.round_name;
+  
+  const instEl = document.getElementById('display-round-instructions');
+  if (state.round_instructions) {
+    instEl.textContent = state.round_instructions;
+    instEl.classList.remove('hidden');
+  } else {
+    instEl.classList.add('hidden');
+  }
+  
+  const imgWrap = document.getElementById('display-round-intro-image');
+  const imgEl = document.getElementById('display-round-img');
+  if (state.round_image) {
+    imgEl.src = state.round_image;
+    imgWrap.classList.remove('hidden');
+  } else {
+    imgWrap.classList.add('hidden');
+  }
 }
 
 // ── Question ───────────────────────────────────────────────────────────────────

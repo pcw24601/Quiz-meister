@@ -26,6 +26,8 @@ def load_quiz(path: str) -> dict:
     for ri, round_raw in enumerate(raw.get("rounds", [])):
         round_obj = {
             "name": str(round_raw.get("name", f"Round {ri + 1}")),
+            "instructions": round_raw.get("instructions") if round_raw.get("instructions") else None,
+            "image": round_raw.get("image") if round_raw.get("image") else None,
             "questions": [],
         }
         for qi, q_raw in enumerate(round_raw.get("questions", [])):

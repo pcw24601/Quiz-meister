@@ -145,6 +145,9 @@ function handleState(state) {
       document.getElementById('waiting-round-name').textContent = state.round_name || '';
       document.getElementById('waiting-team-count').textContent = state.total_teams;
       break;
+    case 'round_intro':
+      renderRoundIntro(state);
+      break;
     case 'question':
       renderQuestion(state);
       break;
@@ -157,6 +160,32 @@ function handleState(state) {
     case 'ended':
       renderEnded(state);
       break;
+  }
+}
+
+// ── Round Intro ────────────────────────────────────────────────────────────────
+
+function renderRoundIntro(state) {
+  showScreen('screen-round-intro');
+  document.getElementById('player-team-name-intro').textContent = teamName || 'Your Team';
+  document.getElementById('player-round-number').textContent = `Round ${state.round_index + 1} of ${state.total_rounds}`;
+  document.getElementById('player-round-title').textContent = state.round_name;
+
+  const instEl = document.getElementById('player-round-instructions');
+  if (state.round_instructions) {
+    instEl.textContent = state.round_instructions;
+    instEl.classList.remove('hidden');
+  } else {
+    instEl.classList.add('hidden');
+  }
+
+  const imgWrap = document.getElementById('player-round-intro-image');
+  const imgEl = document.getElementById('player-round-img');
+  if (state.round_image) {
+    imgEl.src = state.round_image;
+    imgWrap.classList.remove('hidden');
+  } else {
+    imgWrap.classList.add('hidden');
   }
 }
 

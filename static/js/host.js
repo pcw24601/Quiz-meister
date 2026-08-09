@@ -193,6 +193,7 @@ function handleState(state) {
 
   switch(state.state) {
     case 'lobby':       renderLobby(state); break;
+    case 'round_intro': renderRoundIntro(state); break;
     case 'question':    renderQuestion(state); break;
     case 'answer_reveal': renderReveal(state); break;
     case 'leaderboard': renderLeaderboard(state); break;
@@ -201,7 +202,7 @@ function handleState(state) {
 }
 
 function stateLabel(s) {
-  return { lobby:'Lobby', question:'Question Active', answer_reveal:'Revealing Answer',
+  return { lobby:'Lobby', round_intro:'Round Intro', question:'Question Active', answer_reveal:'Revealing Answer',
            leaderboard:'Leaderboard', ended:'Quiz Ended' }[s] || s;
 }
 
@@ -220,9 +221,49 @@ function renderLobby(state) {
   showPanel('panel-lobby');
   document.getElementById('lobby-round-info').textContent =
     `${state.round_name} · ${state.total_questions} question${state.total_questions !== 1 ? 's' : ''}`;
+
+  const btn = document.getElementById('btn-start-first-question');
+  if (state.question_index === 0) {
+    btn.textContent = state.round_index === 0 ? 'Start Quiz' : 'Start Round';
+  } else {
+    btn.textContent = 'Resume Question';
+  }
 }
 
-document.getElementById('btn-start-first-question').addEventListener('click', () => action('start_question'));
+document.getElementById('btn-start-first-question').addEventListener('click', () => {
+  if (lastState && lastState.question_index > 0) {
+    action('start_question');
+  } else {
+    action('start_round');
+  }
+});
+
+// ── Round Intro ────────────────────────────────────────────────────────────────
+
+function renderRoundIntro(state) {
+  showPanel('panel-round-intro');
+  document.getElementById('host-round-intro-badge').textContent = `Round ${state.round_index + 1} of ${state.total_rounds}`;
+  document.getElementById('host-round-intro-title').textContent = state.round_name;
+  
+  const instEl = document.getElementById('host-round-intro-instructions');
+  if (state.round_instructions) {
+    instEl.textContent = state.round_instructions;
+    instEl.classList.remove('hidden');
+  } else {
+    instEl.classList.add('hidden');
+  }
+  
+  const imgWrap = document.getElementById('host-round-intro-image');
+  const imgEl = document.getElementById('host-round-img');
+  if (state.round_image) {
+    imgEl.src = state.round_image;
+    imgWrap.classList.remove('hidden');
+  } else {
+    imgWrap.classList.add('hidden');
+  }
+}
+
+document.getElementById('btn-start-round-questions').addEventListener('click', () => action('start_question'));
 
 // ── Question ───────────────────────────────────────────────────────────────────
 

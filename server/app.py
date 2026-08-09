@@ -139,6 +139,8 @@ async def _broadcast_state(session_id: str, session: dict):
         "round_index": ri,
         "question_index": qi,
         "round_name": current_round["name"] if current_round else "",
+        "round_instructions": current_round.get("instructions") if current_round else None,
+        "round_image": current_round.get("image") if current_round else None,
         "total_rounds": len(rounds),
         "total_questions": len(current_round["questions"]) if current_round else 0,
         "question": player_question,
@@ -357,7 +359,7 @@ async def session_action(session_id: str, req: ActionRequest):
     qi = session["current_question_index"]
 
     if action == "start_question":
-        if session["state"] not in ("lobby", "answer_reveal", "leaderboard"):
+        if session["state"] not in ("lobby", "round_intro", "answer_reveal", "leaderboard"):
             raise HTTPException(400, f"Cannot start question from state: {session['state']}")
 
         # Advance indices if coming from answer_reveal
@@ -396,6 +398,18 @@ async def session_action(session_id: str, req: ActionRequest):
         start_timer(session_id, duration)
         await _broadcast_state(session_id, session)
         return {"state": "question"}
+
+    elif action == "start_round":
+        if session["state"] != "lobby":
+            raise HTTPException(400, f"Cannot start round from state: {session['state']}")
+        db.update_session(session_id, {
+            "state": "round_intro",
+            "current_round_index": 0,
+            "current_question_index": 0,
+        })
+        session = db.get_session(session_id)
+        await _broadcast_state(session_id, session)
+        return {"state": "round_intro"}
 
     elif action == "reveal_answer":
         if session["state"] != "question":
@@ -487,13 +501,13 @@ async def session_action(session_id: str, req: ActionRequest):
             await _broadcast_state(session_id, session)
             return {"state": "ended"}
         db.update_session(session_id, {
-            "state": "lobby",
+            "state": "round_intro",
             "current_round_index": ri + 1,
             "current_question_index": 0,
         })
         session = db.get_session(session_id)
         await _broadcast_state(session_id, session)
-        return {"state": "lobby", "round_index": ri + 1}
+        return {"state": "round_intro", "round_index": ri + 1}
 
     elif action == "override_score":
         answer_id = req.payload.get("answer_id")

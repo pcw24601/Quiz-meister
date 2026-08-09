@@ -428,6 +428,16 @@ body {
   <main class="editor-main">
     <div id="round-editor" class="round-editor hidden">
       <input type="text" id="round-name" class="round-title-input" placeholder="Round Name">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+        <div>
+          <label style="display:block;color:var(--editor-muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Round Instructions (optional)</label>
+          <textarea id="round-instructions" placeholder="Introduce this round to players..." style="width:100%;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text);padding:8px 12px;height:80px;resize:vertical;font-family:inherit;font-size:0.9rem;outline:none"></textarea>
+        </div>
+        <div>
+          <label style="display:block;color:var(--editor-muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Round Image URL (optional)</label>
+          <input type="text" id="round-image" placeholder="e.g. /quiz-images/round_geography.jpg" style="width:100%;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text);padding:8px 12px;font-family:inherit;font-size:0.9rem;outline:none">
+        </div>
+      </div>
       <div id="question-list" class="question-list"></div>
       <button class="add-question-btn" id="btn-add-question">+ Add Question</button>
     </div>
@@ -476,6 +486,8 @@ function renderRoundEditor() {
 
   const round = quiz.rounds[activeRoundIndex];
   document.getElementById('round-name').value = round.name;
+  document.getElementById('round-instructions').value = round.instructions || '';
+  document.getElementById('round-image').value = round.image || '';
 
   renderQuestions();
 }
@@ -639,6 +651,8 @@ function selectRound(index) {
 function addRound() {
   quiz.rounds.push({
     name: `Round ${quiz.rounds.length + 1}`,
+    instructions: '',
+    image: '',
     questions: []
   });
   activeRoundIndex = quiz.rounds.length - 1;
@@ -790,6 +804,18 @@ document.getElementById('round-name').addEventListener('input', (e) => {
   }
 });
 
+document.getElementById('round-instructions').addEventListener('input', (e) => {
+  if (activeRoundIndex >= 0) {
+    quiz.rounds[activeRoundIndex].instructions = e.target.value;
+  }
+});
+
+document.getElementById('round-image').addEventListener('input', (e) => {
+  if (activeRoundIndex >= 0) {
+    quiz.rounds[activeRoundIndex].image = e.target.value;
+  }
+});
+
 document.getElementById('btn-add-round').addEventListener('click', addRound);
 document.getElementById('btn-add-question').addEventListener('click', addQuestion);
 
@@ -909,6 +935,8 @@ function generateYAML() {
 
   for (const round of quiz.rounds) {
     yaml += `  - name: "${(round.name || 'Round').replace(/"/g, '\\"')}"\n`;
+    if (round.instructions) yaml += `    instructions: "${round.instructions.replace(/"/g, '\\"')}"\n`;
+    if (round.image) yaml += `    image: "${round.image}"\n`;
     yaml += `    questions:\n`;
 
     for (const q of round.questions) {
@@ -980,9 +1008,15 @@ function parseYAML(text) {
     } else if (indent === 0 && line.startsWith('rounds:')) {
       // rounds list start
     } else if (indent === 2 && line.startsWith('- name:')) {
-      currentRound = { name: line.replace('- name:', '').trim().replace(/^["']|["']$/g, ''), questions: [] };
+      currentRound = { name: line.replace('- name:', '').trim().replace(/^["']|["']$/g, ''), instructions: '', image: '', questions: [] };
       quiz.rounds.push(currentRound);
       currentQuestion = null;
+    } else if (currentRound && !currentQuestion && indent === 4) {
+      if (line.startsWith('instructions:')) {
+        currentRound.instructions = line.replace('instructions:', '').trim().replace(/^["']|["']$/g, '');
+      } else if (line.startsWith('image:')) {
+        currentRound.image = line.replace('image:', '').trim().replace(/^["']|["']$/g, '');
+      }
     } else if (indent === 6 && line.startsWith('- type:')) {
       if (!currentRound) continue;
       currentQuestion = {

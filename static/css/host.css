@@ -574,3 +574,33 @@
 .trophy {
   font-size: 4rem;
 }
+
+/* ── Round Intro Panel ──────────────────────────────────────────────────────── */
+.round-badge-host {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#panel-round-intro h2 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--neutral-800);
+  margin: 0;
+}
+
+.round-instructions-host {
+  font-size: 1.125rem;
+  color: var(--neutral-600);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.round-intro-image-host {
+  margin-bottom: var(--space-4);
+}
