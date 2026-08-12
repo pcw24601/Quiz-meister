@@ -262,6 +262,7 @@ function renderReveal(state) {
   // Show correct answer
   const answerEl = document.getElementById('display-reveal-answer');
   const optionsEl = document.getElementById('display-reveal-options');
+  const infoEl = document.getElementById('display-reveal-info');
 
   if (q.type === 'multiple_choice' || q.type === 'picture') {
     answerEl.textContent = `${LETTERS[q.correct]}. ${(q.options || [])[q.correct] || ''}`;
@@ -294,6 +295,15 @@ function renderReveal(state) {
   } else {
     answerEl.textContent = '';
     optionsEl.innerHTML = '';
+  }
+
+  // Show answer_info if present
+  if (q.answer_info) {
+    infoEl.textContent = q.answer_info;
+    infoEl.classList.remove('hidden');
+  } else {
+    infoEl.textContent = '';
+    infoEl.classList.add('hidden');
   }
 }
 

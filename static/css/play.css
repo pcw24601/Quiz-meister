@@ -511,6 +511,14 @@
   color: var(--success-600);
 }
 
+.reveal-info {
+  font-size: 0.95rem;
+  color: var(--neutral-600);
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+
 .your-answer-display {
   padding: var(--space-3) var(--space-4);
   background: var(--neutral-100);

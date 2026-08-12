@@ -444,6 +444,14 @@
   animation: reveal-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.reveal-info {
+  font-size: 1rem;
+  color: var(--neutral-300);
+  max-width: 800px;
+  text-align: center;
+  margin-top: 8px;
+}
+
 @keyframes reveal-pop {
   from { transform: scale(0.5); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
