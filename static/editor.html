@@ -1079,6 +1079,20 @@ function parseYAML(text) {
       inItems = false;
     }
   }
+
+  // Post-process loaded questions to map legacy fields to answer_info for editor compatibility
+  for (const rd of quiz.rounds) {
+    for (const q of rd.questions) {
+      if (!q.answer_info) {
+        if (q.answerInfo) q.answer_info = q.answerInfo;
+        else if (q.explanation) q.answer_info = q.explanation;
+        else if (q.explain) q.answer_info = q.explain;
+        else if (q.info) q.answer_info = q.info;
+        else if (q.note && q.type !== 'first_letter') q.answer_info = q.note;
+      }
+      if (!q.answer_info) q.answer_info = '';
+    }
+  }
 }
 
 // ── Initialize ──────────────────────────────────────────────────────────────
