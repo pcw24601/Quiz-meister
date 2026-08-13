@@ -239,7 +239,7 @@ rounds:
 - `points` — points for correct answer (default: 1)
 - `tiebreaker` — mark as tiebreaker question (default: false)
 - `image` — URL to an image to display (for picture type)
-- `note` — hint text to display with question (for first_letter type)
+- `note` — hint text to display with question (not used for first_letter)
 
 ### Picture Questions
 

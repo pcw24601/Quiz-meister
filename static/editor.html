@@ -629,10 +629,6 @@ function renderQuestionCard(q, idx) {
         <label>Correct First Letter</label>
         <input type="text" maxlength="1" value="${q.answer || 'A'}" oninput="updateQuestion(${idx}, 'answer', this.value.toUpperCase())" style="text-transform:uppercase">
       </div>
-      <div class="form-group">
-        <label>Full Answer (displayed as hint)</label>
-        <input type="text" value="${q.note || ''}" placeholder="e.g., Paris" oninput="updateQuestion(${idx}, 'note', this.value)">
-      </div>
     `;
   }
 
@@ -819,7 +815,6 @@ function changeQuestionType(idx, newType) {
     base.tolerance = q.tolerance || 0;
   } else if (newType === 'first_letter') {
     base.answer = q.answer || 'A';
-    base.note = q.note || '';
   }
 
   quiz.rounds[activeRoundIndex].questions[idx] = base;
@@ -1140,7 +1135,6 @@ function generateYAML() {
 
       if (q.type === 'first_letter') {
         yaml += `        answer: ${q.answer}\n`;
-        if (q.note) yaml += `        note: "${q.note.replace(/"/g, '\\"')}"\n`;
       }
 
       if (q.answer_info) yaml += `        answer_info: "${q.answer_info.replace(/"/g, '\\"')}"\n`;
@@ -1247,6 +1241,8 @@ function parseYAML(text) {
         else if (q.info) q.answer_info = q.info;
         else if (q.note && q.type !== 'first_letter') q.answer_info = q.note;
       }
+      // Remove legacy `note` from first_letter questions — it should not be stored there
+      if (q.note && q.type === 'first_letter') delete q.note;
       if (!q.answer_info) q.answer_info = '';
     }
   }
