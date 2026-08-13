@@ -198,9 +198,35 @@ async def play_page():
 # ── API ───────────────────────────────────────────────────────────────────────
 
 @app.get("/api/quizzes")
-async def list_quizzes():
-    files = quiz_loader.list_quiz_files(str(QUIZZES_DIR))
-    return {"quizzes": files}
+async def list_quizzes(path: str = None):
+    """List quiz files. If ?path= is provided, list that directory's files and subdirectories.
+
+    NOTE: Allowing arbitrary paths exposes the server filesystem. This implementation
+    tries to be minimally restrictive: when path is provided, it returns absolute
+    paths for files and directories under that path. Callers (the host UI) should
+    only use this when trusted. When no path is provided, list files under QUIZZES_DIR
+    as before.
+    """
+    try:
+        if path:
+            p = Path(path)
+            if not p.exists():
+                return JSONResponse({"error": "Path not found"}, status_code=404)
+            if not p.is_dir():
+                return JSONResponse({"error": "Path is not a directory"}, status_code=400)
+            files = []
+            dirs = []
+            for child in sorted(p.iterdir()):
+                if child.is_dir():
+                    dirs.append(str(child))
+                elif child.is_file() and child.suffix.lower() in ('.yaml', '.yml', '.json'):
+                    files.append(str(child))
+            return {"cwd": str(p), "files": files, "dirs": dirs}
+        else:
+            files = quiz_loader.list_quiz_files(str(QUIZZES_DIR))
+            return {"cwd": str(QUIZZES_DIR), "files": files}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/config")
@@ -237,7 +263,14 @@ class CreateSessionRequest(BaseModel):
 
 @app.post("/api/sessions")
 async def create_session(req: CreateSessionRequest):
-    path = QUIZZES_DIR / req.quiz_file
+    # Allow either a path relative to QUIZZES_DIR or an absolute path when provided.
+    # If an absolute path is given, use it directly; otherwise resolve under QUIZZES_DIR.
+    provided = req.quiz_file or ""
+    if os.path.isabs(provided):
+        path = Path(provided)
+    else:
+        path = QUIZZES_DIR / provided
+
     if not path.exists():
         raise HTTPException(400, f"Quiz file not found: {req.quiz_file}")
     try:
@@ -246,7 +279,9 @@ async def create_session(req: CreateSessionRequest):
         raise HTTPException(400, f"Invalid quiz file: {e}")
 
     host_secret = secrets.token_urlsafe(16)
-    session = db.create_session(req.quiz_file, quiz_data, host_secret, req.bonus_points)
+    # Store the original provided string so sessions created from absolute paths
+    # remember the actual path used.
+    session = db.create_session(str(path), quiz_data, host_secret, req.bonus_points)
     return {
         "session_id": session["id"],
         "host_secret": host_secret,

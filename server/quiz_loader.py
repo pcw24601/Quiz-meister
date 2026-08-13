@@ -47,7 +47,15 @@ def _parse_question(q: dict, ri: int, qi: int) -> dict:
         "time": int(q.get("time", 30)),
         "points": int(q.get("points", 1)),
         "tiebreaker": bool(q.get("tiebreaker", False)),
+        "answer_info": None,
     }
+    # Backwards-compatible mapping for legacy keys that held explanations/hints
+    ai = q.get("answer_info") or q.get("answerInfo") or q.get("explanation") or q.get("explain") or q.get("info")
+    # Many older quizzes used `note` for an explanatory line; map it for non-first_letter types
+    if ai is None and q.get("note") and qtype != "first_letter":
+        ai = q.get("note")
+    if ai is not None:
+        base["answer_info"] = str(ai)
 
     if qtype in ("multiple_choice", "picture"):
         options = [str(o) for o in q.get("options", [])]

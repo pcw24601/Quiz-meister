@@ -571,8 +571,12 @@ function renderQuestionCard(q, idx) {
     `;
   }
 
-  // Image can be added to any question type
+  // Answer info (optional) and image can be added to any question type
   extraFields += `
+    <div class="form-group full">
+      <label>Answer Info (optional)</label>
+      <textarea oninput="updateQuestion(${idx}, 'answer_info', this.value)">${escapeHtml(q.answer_info || '')}</textarea>
+    </div>
     <div class="form-group full">
       <label>Image URL (optional)</label>
       <input type="url" value="${q.image || ''}" placeholder="https://... or /quiz-images/..." oninput="updateQuestion(${idx}, 'image', this.value)">
@@ -669,7 +673,8 @@ function addQuestion() {
     points: 1,
     tiebreaker: false,
     options: ['', '', '', ''],
-    correct: 0
+    correct: 0,
+    answer_info: ''
   });
   renderQuestions();
 }
@@ -690,7 +695,7 @@ function moveQuestion(idx, direction) {
 
 function changeQuestionType(idx, newType) {
   const q = quiz.rounds[activeRoundIndex].questions[idx];
-  const base = { type: newType, text: q.text, time: q.time, points: q.points, tiebreaker: q.tiebreaker, image: q.image || '' };
+  const base = { type: newType, text: q.text, time: q.time, points: q.points, tiebreaker: q.tiebreaker, image: q.image || '', answer_info: q.answer_info || '' };
 
   if (newType === 'multiple_choice' || newType === 'picture') {
     base.options = q.options || ['', '', '', ''];
@@ -980,6 +985,8 @@ function generateYAML() {
         yaml += `        answer: ${q.answer}\n`;
         if (q.note) yaml += `        note: "${q.note.replace(/"/g, '\\"')}"\n`;
       }
+
+      if (q.answer_info) yaml += `        answer_info: "${q.answer_info.replace(/"/g, '\\"')}"\n`;
     }
   }
 
@@ -1070,6 +1077,20 @@ function parseYAML(text) {
     } else if (indent <= 6) {
       inOptions = false;
       inItems = false;
+    }
+  }
+
+  // Post-process loaded questions to map legacy fields to answer_info for editor compatibility
+  for (const rd of quiz.rounds) {
+    for (const q of rd.questions) {
+      if (!q.answer_info) {
+        if (q.answerInfo) q.answer_info = q.answerInfo;
+        else if (q.explanation) q.answer_info = q.explanation;
+        else if (q.explain) q.answer_info = q.explain;
+        else if (q.info) q.answer_info = q.info;
+        else if (q.note && q.type !== 'first_letter') q.answer_info = q.note;
+      }
+      if (!q.answer_info) q.answer_info = '';
     }
   }
 }

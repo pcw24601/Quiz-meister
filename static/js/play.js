@@ -476,6 +476,7 @@ function renderReveal(state) {
 
   // Show correct answer
   const answerEl = document.getElementById('reveal-answer-display');
+  const infoEl = document.getElementById('reveal-info');
   if (q.type === 'multiple_choice' || q.type === 'picture') {
     answerEl.textContent = `${LETTERS[q.correct]}. ${(q.options || [])[q.correct] || ''}`;
   } else if (q.type === 'select_many') {
@@ -486,6 +487,15 @@ function renderReveal(state) {
     answerEl.textContent = `Answer: ${q.answer}`;
   } else if (q.type === 'first_letter') {
     answerEl.textContent = `First letter: ${q.answer}`;
+  }
+
+  // Show answer_info if present
+  if (q.answer_info) {
+    infoEl.textContent = q.answer_info;
+    infoEl.classList.remove('hidden');
+  } else {
+    infoEl.textContent = '';
+    infoEl.classList.add('hidden');
   }
 
   // Show my answer

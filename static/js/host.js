@@ -49,17 +49,50 @@ function showToast(msg, duration = 3000) {
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
-async function loadQuizList() {
+async function loadQuizList(path = null) {
   try {
-    const res = await fetch('/api/quizzes');
+    const url = path ? `/api/quizzes?path=${encodeURIComponent(path)}` : '/api/quizzes';
+    const res = await fetch(url);
     const data = await res.json();
+    if (data.error) { showToast(data.error); return; }
     const sel = document.getElementById('quiz-select');
-    sel.innerHTML = data.quizzes.length
-      ? data.quizzes.map(f => `<option value="${f}">${f}</option>`).join('')
-      : '<option value="">No quiz files found in /quizzes/</option>';
-    if (data.quizzes.length) updateQuizPreview(data.quizzes[0]);
+    // Build options: directories first (if any), then files
+    let options = [];
+    if (data.dirs && data.dirs.length) {
+      // Parent directory link if applicable
+      const cwd = data.cwd || '';
+      try {
+        const parent = cwd.split('/').slice(0, -1).join('/');
+        if (parent) options.push(`<option value="DIR::${parent}">../</option>`);
+      } catch(e) {}
+      for (const d of data.dirs) {
+        const name = d.split('/').slice(-1)[0] || d;
+        options.push(`<option value="DIR::${d}">${name}/</option>`);
+      }
+    }
+    if (data.files && data.files.length) {
+      for (const f of data.files) {
+        const label = (f + '').split('/').slice(-1)[0];
+        options.push(`<option value="${f}">${label}</option>`);
+      }
+    }
+    // Always include a Browse... option
+    options.push(`<option value="__browse__">Browse...</option>`);
+
+    sel.innerHTML = options.length ? options.join('') : '<option value="">No quiz files found</option>';
+    // Select first real file if present
+    const firstFile = (data.files && data.files.length) ? data.files[0] : null;
+    if (firstFile) {
+      sel.value = firstFile;
+      updateQuizPreview(firstFile);
+    } else {
+      // If no files, select browse option
+      sel.value = '__browse__';
+      updateQuizPreview(sel.value);
+    }
   } catch(e) {
     console.error(e);
+    showToast('Failed to list quizzes');
   }
 }
 
@@ -70,8 +103,20 @@ async function updateQuizPreview(file) {
   preview.classList.remove('hidden');
 }
 
-document.getElementById('quiz-select').addEventListener('change', e => {
-  if (e.target.value) updateQuizPreview(e.target.value);
+document.getElementById('quiz-select').addEventListener('change', async e => {
+  const v = e.target.value;
+  if (!v) return;
+  if (v === '__browse__') {
+    const p = prompt('Enter directory path to browse (absolute):', '/home');
+    if (p) await loadQuizList(p);
+    return;
+  }
+  if (v.startsWith('DIR::')) {
+    const dir = v.substring('DIR::'.length);
+    await loadQuizList(dir);
+    return;
+  }
+  updateQuizPreview(v);
 });
 
 document.getElementById('btn-create-session').addEventListener('click', async () => {
