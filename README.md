@@ -69,7 +69,7 @@ You'll see something like:
 ### Step 3: Open the Host Panel
 
 1. Open `http://localhost:8000/host` in your browser
-2. Select a quiz file (e.g., `example.yaml`)
+2. Select a quiz file (e.g., `example.yaml`) or use the Browse... option to enter an absolute path on the host machine
 3. Click **Start Session**
 
 ## Network Setup Options
