@@ -653,25 +653,6 @@ function renderQuestionCard(q, idx) {
         </div>
       </div>
     </div>
-  `
-  // Image can be added to any question type
-  const imgThumbStyle = q.image ? 'class="image-preview-thumb visible"' : 'class="image-preview-thumb"';
-  extraFields += `
-    <div class="form-group full image-field-group">
-      <label>Image (optional)</label>
-      <div class="image-preview-wrap">
-        <img id="img-preview-${idx}" ${imgThumbStyle} src="${escapeHtml(q.image || '')}" alt="Preview">
-        <div class="image-url-input-wrap">
-          <div class="image-upload-row">
-            <input type="url" id="img-url-${idx}" value="${escapeHtml(q.image || '')}" placeholder="https://... or /quiz-images/..."
-                   oninput="updateQuestion(${idx}, 'image', this.value); updateImagePreview(${idx}, this.value)" style="flex:1">
-            <button type="button" class="btn-upload" onclick="triggerImageUpload(${idx})">⬆ Upload...</button>
-          </div>
-          <span class="image-upload-status" id="img-status-${idx}"></span>
-        </div>
-      </div>
->>>>>>> 52f585b (feat(editor): add image upload with canvas compression and preview thumbnail)
-    </div>
   `;
 
   return `
