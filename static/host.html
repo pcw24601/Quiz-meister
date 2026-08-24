@@ -232,6 +232,65 @@
   </div>
 </div>
 
+<!-- File Browser Modal -->
+<div id="modal-filebrowser" class="modal-backdrop hidden">
+  <div class="modal modal-filebrowser">
+    <h3>&#128194; Browse for Quiz File</h3>
+    <div class="fb-breadcrumb" id="fb-breadcrumb"></div>
+    <div class="fb-list" id="fb-list"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" id="btn-fb-cancel">Cancel</button>
+      <button class="btn btn-primary" id="btn-fb-select" disabled>Select</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── File Browser Modal ──────────────────────────────────────────────────────── */
+.modal-filebrowser {
+  max-width: 560px;
+  width: 100%;
+}
+.fb-breadcrumb {
+  font-size: 0.78rem;
+  color: var(--neutral-500);
+  margin-bottom: var(--space-3);
+  word-break: break-all;
+  font-family: var(--font-mono);
+}
+.fb-list {
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--neutral-50);
+}
+.fb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--neutral-100);
+  transition: background 0.1s;
+  font-size: 0.9rem;
+  user-select: none;
+}
+.fb-item:last-child { border-bottom: none; }
+.fb-item:hover { background: var(--primary-50); }
+.fb-item.selected { background: var(--primary-100); font-weight: 600; }
+.fb-item.fb-dir  { color: var(--primary-700); }
+.fb-item.fb-file { color: var(--neutral-800); }
+.fb-item.fb-parent { color: var(--neutral-500); font-style: italic; }
+.fb-icon { font-size: 1.05rem; flex-shrink: 0; }
+.fb-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--neutral-400);
+  font-size: 0.9rem;
+}
+</style>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="/static/js/qrcode.min.js"></script>

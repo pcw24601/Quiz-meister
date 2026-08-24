@@ -107,8 +107,7 @@ document.getElementById('quiz-select').addEventListener('change', async e => {
   const v = e.target.value;
   if (!v) return;
   if (v === '__browse__') {
-    const p = prompt('Enter directory path to browse (absolute):', '/home');
-    if (p) await loadQuizList(p);
+    openFileBrowser();
     return;
   }
   if (v.startsWith('DIR::')) {
@@ -631,6 +630,122 @@ async function action(actionName, payload = {}) {
 function escHtml(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── File Browser Modal ─────────────────────────────────────────────────────────
+
+let fbCurrentPath = null;  // last directory browsed
+let fbSelectedFile = null; // currently highlighted file path
+
+async function openFileBrowser() {
+  fbSelectedFile = null;
+  document.getElementById('btn-fb-select').disabled = true;
+  document.getElementById('modal-filebrowser').classList.remove('hidden');
+  // Start from the last-browsed dir, or the default quizzes listing
+  await fbNavigate(fbCurrentPath);
+}
+
+async function fbNavigate(path) {
+  fbSelectedFile = null;
+  document.getElementById('btn-fb-select').disabled = true;
+
+  const listEl = document.getElementById('fb-list');
+  listEl.innerHTML = '<div class="fb-empty">Loading…</div>';
+
+  try {
+    const url = path ? `/api/quizzes?path=${encodeURIComponent(path)}` : '/api/quizzes';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error) { showToast(data.error); return; }
+
+    fbCurrentPath = data.cwd;
+    renderFbBreadcrumb(data.cwd);
+    renderFbList(data);
+  } catch (e) {
+    listEl.innerHTML = '<div class="fb-empty">Error loading directory</div>';
+  }
+}
+
+function renderFbBreadcrumb(cwd) {
+  document.getElementById('fb-breadcrumb').textContent = cwd || '/';
+}
+
+function renderFbList(data) {
+  const listEl = document.getElementById('fb-list');
+  let html = '';
+
+  // Parent directory entry
+  if (data.cwd) {
+    const parts = data.cwd.split('/');
+    const parent = parts.slice(0, -1).join('/');
+    if (parent) {
+      html += `<div class="fb-item fb-parent fb-dir" data-dir="${escHtml(parent)}">
+        <span class="fb-icon">&#11014;</span><span>../&ensp;(parent folder)</span>
+      </div>`;
+    }
+  }
+
+  // Subdirectories
+  for (const d of (data.dirs || [])) {
+    const name = d.split('/').pop() || d;
+    html += `<div class="fb-item fb-dir" data-dir="${escHtml(d)}">
+      <span class="fb-icon">&#128193;</span><span>${escHtml(name)}/</span>
+    </div>`;
+  }
+
+  // Quiz files
+  for (const f of (data.files || [])) {
+    const name = f.split('/').pop() || f;
+    html += `<div class="fb-item fb-file" data-file="${escHtml(f)}">
+      <span class="fb-icon">&#128196;</span><span>${escHtml(name)}</span>
+    </div>`;
+  }
+
+  if (!html) {
+    html = '<div class="fb-empty">No quiz files or subdirectories here</div>';
+  }
+
+  listEl.innerHTML = html;
+
+  // Attach click handlers
+  listEl.querySelectorAll('.fb-dir').forEach(el => {
+    el.addEventListener('click', () => fbNavigate(el.dataset.dir));
+  });
+  listEl.querySelectorAll('.fb-file').forEach(el => {
+    el.addEventListener('click', () => fbSelectFile(el));
+  });
+}
+
+function fbSelectFile(el) {
+  document.querySelectorAll('#fb-list .fb-item.selected')
+    .forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  fbSelectedFile = el.dataset.file;
+  document.getElementById('btn-fb-select').disabled = false;
+}
+
+function closeFbModal() {
+  document.getElementById('modal-filebrowser').classList.add('hidden');
+  fbSelectedFile = null;
+}
+
+document.getElementById('btn-fb-cancel').addEventListener('click', closeFbModal);
+
+document.getElementById('btn-fb-select').addEventListener('click', () => {
+  if (!fbSelectedFile) return;
+  const sel = document.getElementById('quiz-select');
+  // Add as an option if not already present
+  let opt = [...sel.options].find(o => o.value === fbSelectedFile);
+  if (!opt) {
+    opt = new Option(fbSelectedFile.split('/').pop(), fbSelectedFile);
+    // Insert before the Browse... option
+    const browseOpt = [...sel.options].find(o => o.value === '__browse__');
+    if (browseOpt) sel.insertBefore(opt, browseOpt);
+    else sel.appendChild(opt);
+  }
+  sel.value = fbSelectedFile;
+  updateQuizPreview(fbSelectedFile);
+  closeFbModal();
+});
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 
