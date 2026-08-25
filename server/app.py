@@ -236,6 +236,28 @@ async def get_config():
     return {"player_url": f"http://{local_ip}:{port}/play"}
 
 
+@app.get("/api/quizzes/load")
+async def load_quiz_content(file: str):
+    provided = file or ""
+    if os.path.isabs(provided):
+        path = Path(provided)
+    else:
+        path = QUIZZES_DIR / provided
+        if not path.exists():
+            alt_path = BASE_DIR / provided
+            if alt_path.exists():
+                path = alt_path
+
+    if not path.exists() or not path.is_file():
+        raise HTTPException(404, f"Quiz file not found: {file}")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"filename": path.name, "path": str(path), "content": content}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read file: {e}")
+
+
 class SaveQuizRequest(BaseModel):
     filename: str
     content: str
