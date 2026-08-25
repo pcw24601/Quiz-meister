@@ -9,6 +9,7 @@ Supported question types:
   - picture: like multiple_choice but with an image displayed
 """
 
+import re
 import yaml
 import os
 from typing import Any
@@ -16,7 +17,17 @@ from typing import Any
 
 def load_quiz(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
+        content = f.read()
+
+    try:
+        raw = yaml.safe_load(content)
+    except (yaml.parser.ParserError, yaml.scanner.ScannerError):
+        # Fallback: clean up over-escaped backslashes before quotes
+        fixed = re.sub(r'\\{2,}"', r'\"', content)
+        raw = yaml.safe_load(fixed)
+
+    if not isinstance(raw, dict):
+        raw = {}
 
     quiz = {
         "title": str(raw.get("title", "Quiz")),

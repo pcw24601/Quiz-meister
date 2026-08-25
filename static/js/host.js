@@ -426,6 +426,17 @@ function renderReveal(state) {
   document.getElementById('reveal-question-text').textContent = q.text;
   document.getElementById('reveal-correct-answer').innerHTML = correctAnswerHTML(q);
 
+  const infoEl = document.getElementById('reveal-answer-info');
+  if (infoEl) {
+    if (q.answer_info) {
+      infoEl.textContent = q.answer_info;
+      infoEl.classList.remove('hidden');
+    } else {
+      infoEl.textContent = '';
+      infoEl.classList.add('hidden');
+    }
+  }
+
   // Build answers table with ranking
   const teams = state.teams;
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]));

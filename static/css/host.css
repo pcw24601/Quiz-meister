@@ -449,7 +449,19 @@
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--secondary-600);
+  margin-bottom: var(--space-4);
+}
+
+.reveal-info-host {
   margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  color: var(--neutral-700);
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 .answers-table-wrap {

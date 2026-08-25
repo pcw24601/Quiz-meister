@@ -1068,57 +1068,96 @@ document.getElementById('btn-open').addEventListener('click', () => {
   input.click();
 });
 
+function escapeYamlStr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\r/g, '\\n')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+}
+
+function unescapeYamlValue(val) {
+  if (val === null || val === undefined) return '';
+  val = val.trim();
+  if (!val) return '';
+
+  if (val.startsWith('"') && val.endsWith('"') && val.length >= 2) {
+    const inner = val.slice(1, -1);
+    return inner
+      .replace(/\\\\/g, '\0')
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\0/g, '\\');
+  }
+
+  if (val.startsWith("'") && val.endsWith("'") && val.length >= 2) {
+    const inner = val.slice(1, -1);
+    return inner.replace(/''/g, "'");
+  }
+
+  if (val.includes('\\"') || val.includes('\\\\')) {
+    val = val.replace(/\\{2,}"/g, '"').replace(/\\"/g, '"');
+  }
+
+  return val;
+}
+
 function generateYAML() {
-  let yaml = `title: "${(quiz.title || 'Quiz').replace(/"/g, '\\"')}"\n\nrounds:\n`;
+  let yaml = `title: "${escapeYamlStr(quiz.title || 'Quiz')}"\n\nrounds:\n`;
 
   for (const round of quiz.rounds) {
-    yaml += `  - name: "${(round.name || 'Round').replace(/"/g, '\\"')}"\n`;
-    if (round.instructions) yaml += `    instructions: "${round.instructions.replace(/"/g, '\\"')}"\n`;
-    if (round.image) yaml += `    image: "${round.image}"\n`;
+    yaml += `  - name: "${escapeYamlStr(round.name || 'Round')}"\n`;
+    if (round.instructions) yaml += `    instructions: "${escapeYamlStr(round.instructions)}"\n`;
+    if (round.image) yaml += `    image: "${escapeYamlStr(round.image)}"\n`;
     yaml += `    questions:\n`;
 
     for (const q of round.questions) {
       yaml += `      - type: ${q.type}\n`;
-      yaml += `        text: "${(q.text || '').replace(/"/g, '\\"')}"\n`;
+      yaml += `        text: "${escapeYamlStr(q.text || '')}"\n`;
 
-      if (q.time !== 30) yaml += `        time: ${q.time}\n`;
-      if (q.points !== 1) yaml += `        points: ${q.points}\n`;
+      if (q.time !== 30 && q.time !== undefined && q.time !== null) yaml += `        time: ${q.time}\n`;
+      if (q.points !== 1 && q.points !== undefined && q.points !== null) yaml += `        points: ${q.points}\n`;
       if (q.tiebreaker) yaml += `        tiebreaker: true\n`;
 
       if (q.type === 'multiple_choice' || q.type === 'picture' || q.type === 'select_many') {
         yaml += `        options:\n`;
         for (const opt of q.options || []) {
-          yaml += `          - "${(opt || '').replace(/"/g, '\\"')}"\n`;
+          yaml += `          - "${escapeYamlStr(opt || '')}"\n`;
         }
         if (q.type === 'select_many') {
           yaml += `        correct: [${(q.correct || []).join(', ')}]\n`;
         } else {
-          yaml += `        correct: ${q.correct}\n`;
+          yaml += `        correct: ${q.correct !== undefined && q.correct !== null ? q.correct : 0}\n`;
         }
       }
 
-      // Image can be on any question type
       if (q.image) {
-        yaml += `        image: "${q.image}"\n`;
+        yaml += `        image: "${escapeYamlStr(q.image)}"\n`;
       }
 
       if (q.type === 'order') {
         yaml += `        items:\n`;
         for (const item of q.items || []) {
-          yaml += `          - "${(item || '').replace(/"/g, '\\"')}"\n`;
+          yaml += `          - "${escapeYamlStr(item || '')}"\n`;
         }
       }
 
       if (q.type === 'numeric') {
-        yaml += `        answer: ${q.answer}\n`;
+        yaml += `        answer: ${q.answer !== undefined && q.answer !== null ? q.answer : 0}\n`;
         if (q.tolerance !== undefined && q.tolerance !== null && q.tolerance !== '') yaml += `        tolerance: ${q.tolerance}\n`;
       }
 
       if (q.type === 'first_letter') {
-        yaml += `        answer: ${q.answer}\n`;
+        yaml += `        answer: ${escapeYamlStr(q.answer || 'A')}\n`;
+        if (q.note) yaml += `        note: "${escapeYamlStr(q.note)}"\n`;
       }
 
-      if (q.answer_info) yaml += `        answer_info: "${q.answer_info.replace(/"/g, '\\"')}"\n`;
+      if (q.answer_info) yaml += `        answer_info: "${escapeYamlStr(q.answer_info)}"\n`;
     }
   }
 
@@ -1126,93 +1165,179 @@ function generateYAML() {
 }
 
 function parseYAML(text) {
-  // Simple YAML parser for our format
-  // Note: In production, use js-yaml library
-  const lines = text.split('\n');
+  const lines = text.split(/\r?\n/);
   quiz = { title: 'Quiz', rounds: [] };
   let currentRound = null;
   let currentQuestion = null;
   let inOptions = false;
   let inItems = false;
-  let optionIndex = 0;
-  let itemIndex = 0;
 
-  for (let line of lines) {
-    const indent = line.search(/\S|$/);
-    line = line.trim();
-    if (!line || line.startsWith('#')) continue;
+  function readValue(valStr, currentIndent, lineIdxRef) {
+    let val = valStr.trim();
+    if (val === '|' || val === '|-' || val === '>' || val === '>-') {
+      const blockLines = [];
+      lineIdxRef.i++;
+      while (lineIdxRef.i < lines.length) {
+        const nextRaw = lines[lineIdxRef.i];
+        const nextTrimmed = nextRaw.trim();
+        if (!nextTrimmed) {
+          blockLines.push('');
+          lineIdxRef.i++;
+          continue;
+        }
+        const nextIndent = nextRaw.search(/\S|$/);
+        if (nextIndent <= currentIndent) {
+          lineIdxRef.i--;
+          break;
+        }
+        blockLines.push(nextTrimmed);
+        lineIdxRef.i++;
+      }
+      return blockLines.join('\n');
+    }
 
-    if (indent === 0 && line.startsWith('title:')) {
-      quiz.title = line.replace('title:', '').trim().replace(/^["']|["']$/g, '');
-    } else if (indent === 0 && line.startsWith('rounds:')) {
-      // rounds list start
-    } else if (indent === 2 && line.startsWith('- name:')) {
-      currentRound = { name: line.replace('- name:', '').trim().replace(/^["']|["']$/g, ''), instructions: '', image: '', questions: [] };
+    if (val.startsWith('"') && (!val.endsWith('"') || val.length === 1 || (val.endsWith('\\"') && !val.endsWith('\\\\"')))) {
+      const quotedParts = [val];
+      lineIdxRef.i++;
+      while (lineIdxRef.i < lines.length) {
+        const nextRaw = lines[lineIdxRef.i];
+        const nextTrimmed = nextRaw.trim();
+        quotedParts.push(nextTrimmed);
+        if (nextTrimmed.endsWith('"') && !nextTrimmed.endsWith('\\"')) {
+          break;
+        }
+        lineIdxRef.i++;
+      }
+      return unescapeYamlValue(quotedParts.join('\n'));
+    }
+
+    if (val.startsWith("'") && (!val.endsWith("'") || val.length === 1)) {
+      const quotedParts = [val];
+      lineIdxRef.i++;
+      while (lineIdxRef.i < lines.length) {
+        const nextRaw = lines[lineIdxRef.i];
+        const nextTrimmed = nextRaw.trim();
+        quotedParts.push(nextTrimmed);
+        if (nextTrimmed.endsWith("'") && !nextTrimmed.endsWith("''")) {
+          break;
+        }
+        lineIdxRef.i++;
+      }
+      return unescapeYamlValue(quotedParts.join('\n'));
+    }
+
+    return unescapeYamlValue(val);
+  }
+
+  const lineIdxRef = { i: 0 };
+  while (lineIdxRef.i < lines.length) {
+    const rawLine = lines[lineIdxRef.i];
+    const line = rawLine.trim();
+    const indent = rawLine.search(/\S|$/);
+
+    if (!line || line.startsWith('#')) {
+      lineIdxRef.i++;
+      continue;
+    }
+
+    if (line.startsWith('title:')) {
+      quiz.title = readValue(line.slice(6), indent, lineIdxRef);
+    } else if (line.startsWith('- name:')) {
+      currentRound = {
+        name: readValue(line.slice(7), indent, lineIdxRef),
+        instructions: '',
+        image: '',
+        questions: []
+      };
       quiz.rounds.push(currentRound);
       currentQuestion = null;
-    } else if (currentRound && !currentQuestion && indent === 4) {
-      if (line.startsWith('instructions:')) {
-        currentRound.instructions = line.replace('instructions:', '').trim().replace(/^["']|["']$/g, '');
-      } else if (line.startsWith('image:')) {
-        currentRound.image = line.replace('image:', '').trim().replace(/^["']|["']$/g, '');
-      }
-    } else if (indent === 6 && line.startsWith('- type:')) {
-      if (!currentRound) continue;
-      currentQuestion = {
-        type: line.replace('- type:', '').trim(),
-        text: '',
-        time: 30,
-        points: 1,
-        tiebreaker: false
-      };
-      currentRound.questions.push(currentQuestion);
       inOptions = false;
       inItems = false;
-    } else if (currentQuestion && indent === 8) {
+    } else if (currentRound && !currentQuestion && line.startsWith('instructions:')) {
+      currentRound.instructions = readValue(line.slice(13), indent, lineIdxRef);
+    } else if (currentRound && !currentQuestion && line.startsWith('image:')) {
+      currentRound.image = readValue(line.slice(6), indent, lineIdxRef);
+    } else if (line.startsWith('- type:')) {
+      if (currentRound) {
+        currentQuestion = {
+          type: line.slice(7).trim(),
+          text: '',
+          time: 30,
+          points: 1,
+          tiebreaker: false,
+          answer_info: ''
+        };
+        currentRound.questions.push(currentQuestion);
+        inOptions = false;
+        inItems = false;
+      }
+    } else if (currentQuestion) {
       if (line.startsWith('text:')) {
-        currentQuestion.text = line.replace('text:', '').trim().replace(/^["']|["']$/g, '');
+        currentQuestion.text = readValue(line.slice(5), indent, lineIdxRef);
+        inOptions = inItems = false;
       } else if (line.startsWith('time:')) {
-        currentQuestion.time = parseInt(line.replace('time:', '').trim());
+        const num = parseInt(line.slice(5).trim());
+        if (!isNaN(num)) currentQuestion.time = num;
+        inOptions = inItems = false;
       } else if (line.startsWith('points:')) {
-        currentQuestion.points = parseInt(line.replace('points:', '').trim());
+        const num = parseInt(line.slice(7).trim());
+        if (!isNaN(num)) currentQuestion.points = num;
+        inOptions = inItems = false;
       } else if (line.startsWith('tiebreaker:')) {
-        currentQuestion.tiebreaker = line.includes('true');
+        currentQuestion.tiebreaker = line.toLowerCase().includes('true');
+        inOptions = inItems = false;
       } else if (line.startsWith('correct:')) {
-        const val = line.replace('correct:', '').trim();
+        const val = line.slice(8).trim();
         if (val.startsWith('[')) {
-          currentQuestion.correct = val.replace(/[\[\]]/g, '').split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+          currentQuestion.correct = val.slice(1, -1).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
         } else {
-          currentQuestion.correct = parseInt(val);
+          const num = parseInt(val);
+          currentQuestion.correct = isNaN(num) ? 0 : num;
         }
+        inOptions = inItems = false;
       } else if (line.startsWith('answer:')) {
-        const val = line.replace('answer:', '').trim();
-        currentQuestion.answer = isNaN(val) ? val.replace(/^["']|["']$/g, '') : parseFloat(val);
+        const val = readValue(line.slice(7), indent, lineIdxRef);
+        currentQuestion.answer = (val !== '' && !isNaN(val)) ? parseFloat(val) : val;
+        inOptions = inItems = false;
       } else if (line.startsWith('tolerance:')) {
-        currentQuestion.tolerance = parseFloat(line.replace('tolerance:', '').trim());
+        const num = parseFloat(line.slice(10).trim());
+        if (!isNaN(num)) currentQuestion.tolerance = num;
+        inOptions = inItems = false;
+      } else if (line.startsWith('answer_info:') || line.startsWith('answerInfo:') || line.startsWith('explanation:') || line.startsWith('explain:') || line.startsWith('info:')) {
+        const colonPos = line.indexOf(':');
+        currentQuestion.answer_info = readValue(line.slice(colonPos + 1), indent, lineIdxRef);
+        inOptions = inItems = false;
       } else if (line.startsWith('note:')) {
-        currentQuestion.note = line.replace('note:', '').trim().replace(/^["']|["']$/g, '');
+        const val = readValue(line.slice(5), indent, lineIdxRef);
+        if (currentQuestion.type === 'first_letter') {
+          currentQuestion.note = val;
+        } else {
+          if (!currentQuestion.answer_info) currentQuestion.answer_info = val;
+        }
+        inOptions = inItems = false;
       } else if (line.startsWith('image:')) {
-        currentQuestion.image = line.replace('image:', '').trim().replace(/^["']|["']$/g, '');
+        currentQuestion.image = readValue(line.slice(6), indent, lineIdxRef);
+        inOptions = inItems = false;
       } else if (line.startsWith('options:')) {
         currentQuestion.options = [];
         inOptions = true;
-        optionIndex = 0;
+        inItems = false;
       } else if (line.startsWith('items:')) {
         currentQuestion.items = [];
         inItems = true;
-        itemIndex = 0;
+        inOptions = false;
+      } else if (inOptions && line.startsWith('- ')) {
+        currentQuestion.options.push(readValue(line.slice(2), indent, lineIdxRef));
+      } else if (inItems && line.startsWith('- ')) {
+        currentQuestion.items.push(readValue(line.slice(2), indent, lineIdxRef));
+      } else if (!line.startsWith('- ')) {
+        inOptions = inItems = false;
       }
-    } else if (inOptions && indent === 10 && line.startsWith('- ')) {
-      currentQuestion.options.push(line.replace('- ', '').trim().replace(/^["']|["']$/g, ''));
-    } else if (inItems && indent === 10 && line.startsWith('- ')) {
-      currentQuestion.items.push(line.replace('- ', '').trim().replace(/^["']|["']$/g, ''));
-    } else if (indent <= 6) {
-      inOptions = false;
-      inItems = false;
     }
+    lineIdxRef.i++;
   }
 
-  // Post-process loaded questions to map legacy fields to answer_info for editor compatibility
+  // Ensure answer_info defaults to string
   for (const rd of quiz.rounds) {
     for (const q of rd.questions) {
       if (!q.answer_info) {
@@ -1222,8 +1347,6 @@ function parseYAML(text) {
         else if (q.info) q.answer_info = q.info;
         else if (q.note && q.type !== 'first_letter') q.answer_info = q.note;
       }
-      // Remove legacy `note` from first_letter questions — it should not be stored there
-      if (q.note && q.type === 'first_letter') delete q.note;
       if (!q.answer_info) q.answer_info = '';
     }
   }
