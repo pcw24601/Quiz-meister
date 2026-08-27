@@ -448,6 +448,65 @@ body {
   min-height: 1em;
 }
 
+/* Round drag handle & reorder buttons */
+.round-item {
+  position: relative;
+}
+
+.round-drag-handle {
+  cursor: grab;
+  color: var(--editor-muted);
+  padding: 2px 4px;
+  font-size: 0.9rem;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.round-item:hover .round-drag-handle {
+  opacity: 1;
+}
+
+.round-drag-handle:active {
+  cursor: grabbing;
+}
+
+.round-item.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+}
+
+.round-item.drag-over {
+  border-color: var(--primary-500);
+  box-shadow: 0 3px 0 0 var(--primary-500);
+}
+
+.round-move-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  color: var(--editor-muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  line-height: 1;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.round-move-btn:hover {
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  border-color: var(--primary-500);
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;
@@ -528,10 +587,22 @@ let currentFilename = '';
 function renderSidebar() {
   const list = document.getElementById('round-list');
   list.innerHTML = quiz.rounds.map((r, i) => `
-    <div class="round-item ${i === activeRoundIndex ? 'active' : ''}" onclick="selectRound(${i})">
+    <div class="round-item ${i === activeRoundIndex ? 'active' : ''}"
+         draggable="true"
+         onclick="selectRound(${i})"
+         ondragstart="roundDragStart(event, ${i})"
+         ondragover="roundDragOver(event, ${i})"
+         ondrop="roundDrop(event, ${i})"
+         ondragend="roundDragEnd(event)"
+         data-round-index="${i}">
       <div class="round-item-header">
+        <span class="round-drag-handle" title="Drag to reorder">⠿</span>
         <span class="round-item-name">${r.name || 'Untitled Round'}</span>
-        <span class="round-item-count">${r.questions.length} questions</span>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <span class="round-item-count">${r.questions.length}q</span>
+          <button type="button" class="round-move-btn" onclick="event.stopPropagation(); moveRound(${i}, -1)" title="Move round up">▲</button>
+          <button type="button" class="round-move-btn" onclick="event.stopPropagation(); moveRound(${i}, 1)" title="Move round down">▼</button>
+        </div>
       </div>
     </div>
   `).join('');
@@ -734,6 +805,71 @@ function addRound() {
   activeRoundIndex = quiz.rounds.length - 1;
   renderSidebar();
   renderRoundEditor();
+}
+
+// ── Round Reordering ──────────────────────────────────────────────────────────
+
+function moveRound(idx, direction) {
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= quiz.rounds.length) return;
+  [quiz.rounds[idx], quiz.rounds[newIdx]] = [quiz.rounds[newIdx], quiz.rounds[idx]];
+  // Keep the active selection on the same round after move
+  if (activeRoundIndex === idx) {
+    activeRoundIndex = newIdx;
+  } else if (activeRoundIndex === newIdx) {
+    activeRoundIndex = idx;
+  }
+  renderSidebar();
+  renderRoundEditor();
+}
+
+let _dragSrcIndex = -1;
+
+function roundDragStart(event, idx) {
+  _dragSrcIndex = idx;
+  event.dataTransfer.effectAllowed = 'move';
+  // Slight delay so the browser captures the snapshot before we dim the element
+  setTimeout(() => {
+    const el = document.querySelector(`.round-item[data-round-index="${idx}"]`);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+
+function roundDragOver(event, idx) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.round-item').forEach(el => el.classList.remove('drag-over'));
+  if (idx !== _dragSrcIndex) {
+    event.currentTarget.classList.add('drag-over');
+  }
+}
+
+function roundDrop(event, targetIdx) {
+  event.preventDefault();
+  if (_dragSrcIndex === -1 || _dragSrcIndex === targetIdx) return;
+
+  const moved = quiz.rounds.splice(_dragSrcIndex, 1)[0];
+  quiz.rounds.splice(targetIdx, 0, moved);
+
+  // Adjust activeRoundIndex so the same round stays selected
+  if (activeRoundIndex === _dragSrcIndex) {
+    activeRoundIndex = targetIdx;
+  } else if (_dragSrcIndex < activeRoundIndex && targetIdx >= activeRoundIndex) {
+    activeRoundIndex--;
+  } else if (_dragSrcIndex > activeRoundIndex && targetIdx <= activeRoundIndex) {
+    activeRoundIndex++;
+  }
+
+  _dragSrcIndex = -1;
+  renderSidebar();
+  renderRoundEditor();
+}
+
+function roundDragEnd(event) {
+  _dragSrcIndex = -1;
+  document.querySelectorAll('.round-item').forEach(el => {
+    el.classList.remove('dragging', 'drag-over');
+  });
 }
 
 function addQuestion() {
