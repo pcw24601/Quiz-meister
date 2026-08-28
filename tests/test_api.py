@@ -30,17 +30,18 @@ def test_load_gpc_2026_quiz():
     path = os.path.abspath('GCP_2026_quiz/gpc-2026.yaml')
     quiz = quiz_loader.load_quiz(path)
     assert quiz['title'] == 'GPC_2026'
-    assert len(quiz['rounds']) == 8
+    assert len(quiz['rounds']) == 10
     
     # Check answer_info on Old Testament Q1
-    q1 = quiz['rounds'][0]['questions'][0]
+    ot_round = [r for r in quiz['rounds'] if r['name'] == 'Old Testament'][0]
+    q1 = ot_round['questions'][0]
     assert q1['type'] == 'first_letter'
     assert q1['answer'] == 'E'
     assert q1['answer_info'] == 'Ezekiel'
 
     # Check instructions on Say what?
-    r3 = quiz['rounds'][2]
-    assert '"Who wrote \'Alice in Wonderland\'?"' in r3['instructions']
+    say_what = [r for r in quiz['rounds'] if 'Say what' in r['name']][0]
+    assert '"Who wrote \'Alice in Wonderland\'?"' in say_what['instructions']
 
 
 def test_create_session_gpc_2026():
@@ -72,4 +73,117 @@ rounds:
     assert quiz['title'] == "Test Over-Escaped"
     assert "Quote" in quiz['rounds'][0]['instructions']
     assert quiz['rounds'][0]['questions'][0]['answer_info'] == "Alpha"
+
+
+def test_save_quiz_with_custom_path_and_default(tmp_path):
+    custom_file = tmp_path / "subfolder" / "my_custom_quiz.yaml"
+    content = 'title: "Custom Quiz"\nrounds: []\n'
+    res = client.post('/api/quizzes/save', json={'path': str(custom_file), 'content': content})
+    assert res.status_code == 200
+    data = res.json()
+    assert data['ok'] is True
+    assert data['filename'] == "my_custom_quiz.yaml"
+    assert custom_file.exists()
+    assert custom_file.read_text(encoding="utf-8") == content
+
+
+def test_upload_image_requires_quiz_file():
+    # Attempt upload without quiz_file
+    files = {'file': ('test.jpg', b'dummy content', 'image/jpeg')}
+    res = client.post('/api/quizzes/upload-image', files=files, data={'quiz_file': ''})
+    assert res.status_code == 400
+    assert 'quiz_file is required' in res.json()['detail']
+
+
+def test_upload_and_get_quiz_image(tmp_path):
+    quiz_file = tmp_path / "sample_quiz.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+
+    files = {'file': ('pic.jpg', b'fake-image-bytes', 'image/jpeg')}
+    res = client.post('/api/quizzes/upload-image', files=files, data={'quiz_file': str(quiz_file)})
+    assert res.status_code == 200
+    data = res.json()
+    assert data['ok'] is True
+    assert data['path'].startswith('images/')
+    
+    # Check that image was written in tmp_path/images/
+    saved_img = tmp_path / data['path']
+    assert saved_img.exists()
+    assert saved_img.read_bytes() == b'fake-image-bytes'
+
+    # Check reading image via GET /api/quizzes/image
+    img_res = client.get('/api/quizzes/image', params={'quiz_file': str(quiz_file), 'path': data['path']})
+    assert img_res.status_code == 200
+    assert img_res.content == b'fake-image-bytes'
+
+
+def test_session_image_serving(tmp_path):
+    import os
+    quiz_yaml = """title: "Session Test"
+rounds:
+  - name: "Round 1"
+    image: "images/round1.png"
+    questions:
+      - type: picture
+        text: "What is this?"
+        image: "images/q1.png"
+        options: ["A", "B"]
+        correct: 0
+"""
+    q_file = tmp_path / "test_quiz.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+    img_dir = tmp_path / "images"
+    img_dir.mkdir()
+    (img_dir / "round1.png").write_bytes(b'round-img-bytes')
+    (img_dir / "q1.png").write_bytes(b'question-img-bytes')
+
+    # Create session
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    assert res.status_code == 200
+    session_id = res.json()['session_id']
+
+    # Retrieve round image via session endpoint
+    r_img_res = client.get(f'/api/sessions/{session_id}/image', params={'path': 'images/round1.png'})
+    assert r_img_res.status_code == 200
+    assert r_img_res.content == b'round-img-bytes'
+
+    # Retrieve question image via session endpoint
+    q_img_res = client.get(f'/api/sessions/{session_id}/image', params={'path': 'images/q1.png'})
+    assert q_img_res.status_code == 200
+    assert q_img_res.content == b'question-img-bytes'
+
+    # Non-existent image returns 404
+    missing_res = client.get(f'/api/sessions/{session_id}/image', params={'path': 'images/does_not_exist.png'})
+    assert missing_res.status_code == 404
+
+
+def test_upload_image_invalid_extension(tmp_path):
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    files = {'file': ('bad.exe', b'bad-content', 'application/x-msdownload')}
+    res = client.post('/api/quizzes/upload-image', files=files, data={'quiz_file': str(quiz_file)})
+    assert res.status_code == 400
+    assert 'Unsupported image type' in res.json()['detail']
+
+
+def test_resolve_session_image_url():
+    from app import _resolve_session_image_url
+    # None and empty
+    assert _resolve_session_image_url("s1", None) is None
+    assert _resolve_session_image_url("s1", "") is None
+    
+    # External URLs
+    assert _resolve_session_image_url("s1", "https://example.com/pic.jpg") == "https://example.com/pic.jpg"
+    assert _resolve_session_image_url("s1", "http://example.com/pic.jpg") == "http://example.com/pic.jpg"
+    assert _resolve_session_image_url("s1", "data:image/png;base64,...") == "data:image/png;base64,..."
+    
+    # Legacy /quiz-images/ mount
+    assert _resolve_session_image_url("s1", "/quiz-images/round1.jpg") == "/quiz-images/round1.jpg"
+
+    # Relative paths
+    assert _resolve_session_image_url("s1", "images/round1.jpg") == "/api/sessions/s1/image?path=images/round1.jpg"
+    assert _resolve_session_image_url("s1", "/images/round1.jpg") == "/api/sessions/s1/image?path=images/round1.jpg"
+    assert _resolve_session_image_url("s1", "round1.jpg") == "/api/sessions/s1/image?path=round1.jpg"
+
+
 

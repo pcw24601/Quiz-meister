@@ -437,9 +437,24 @@ body {
   transition: all 0.15s;
 }
 
-.btn-upload:hover {
+.btn-upload:hover:not(:disabled) {
   border-color: var(--primary-500);
   color: var(--primary-500);
+}
+
+.btn-upload:disabled,
+.btn-upload.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--editor-border);
+  color: var(--editor-muted);
+}
+
+.image-upload-hint {
+  font-size: 0.75rem;
+  color: var(--warning-500);
+  display: block;
+  margin-top: 2px;
 }
 
 .image-upload-status {
@@ -528,6 +543,7 @@ body {
   <header class="editor-header">
     <h1><span style="color: var(--primary-500)">&#9670;</span> Quiz Editor</h1>
     <div class="header-actions">
+      <button class="btn btn-secondary" id="btn-new">New</button>
       <button class="btn btn-secondary" id="btn-open">Open...</button>
       <button class="btn btn-secondary" id="btn-save-yaml">Save Local</button>
       <button class="btn btn-success" id="btn-save">Save</button>
@@ -558,8 +574,17 @@ body {
           <textarea id="round-instructions" placeholder="Introduce this round to players..." style="width:100%;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text);padding:8px 12px;height:80px;resize:vertical;font-family:inherit;font-size:0.9rem;outline:none"></textarea>
         </div>
         <div>
-          <label style="display:block;color:var(--editor-muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Round Image URL (optional)</label>
-          <input type="text" id="round-image" placeholder="e.g. /quiz-images/round_geography.jpg" style="width:100%;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text);padding:8px 12px;font-family:inherit;font-size:0.9rem;outline:none">
+          <label style="display:block;color:var(--editor-muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Round Image (optional)</label>
+          <div class="image-preview-wrap">
+            <img id="round-img-preview" class="image-preview-thumb" src="" alt="Round Preview">
+            <div class="image-url-input-wrap">
+              <div class="image-upload-row">
+                <input type="text" id="round-image" placeholder="e.g. images/round_geography.jpg" style="flex:1;background:var(--editor-card);border:1px solid var(--editor-border);border-radius:6px;color:var(--editor-text);padding:8px 12px;font-family:inherit;font-size:0.9rem;outline:none">
+                <button type="button" class="btn-upload" id="btn-upload-round-img" onclick="triggerRoundImageUpload()">⬆ Upload...</button>
+              </div>
+              <span class="image-upload-status" id="round-img-status"></span>
+            </div>
+          </div>
         </div>
       </div>
       <div id="question-list" class="question-list"></div>
@@ -581,6 +606,19 @@ let quiz = {
 };
 let activeRoundIndex = -1;
 let currentFilename = '';
+let currentQuizPath = '';
+
+function getEditorImageUrl(src) {
+  if (!src) return '';
+  const s = String(src).trim();
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:') || s.startsWith('/quiz-images/') || s.startsWith('/static/')) {
+    return s;
+  }
+  if (currentQuizPath) {
+    return `/api/quizzes/image?quiz_file=${encodeURIComponent(currentQuizPath)}&path=${encodeURIComponent(s)}`;
+  }
+  return s;
+}
 
 // ── Renderers ────────────────────────────────────────────────────────────────
 
@@ -624,6 +662,18 @@ function renderRoundEditor() {
   document.getElementById('round-name').value = round.name;
   document.getElementById('round-instructions').value = round.instructions || '';
   document.getElementById('round-image').value = round.image || '';
+  updateRoundImagePreview(round.image || '');
+
+  const isSaved = Boolean(currentQuizPath);
+  const roundUploadBtn = document.getElementById('btn-upload-round-img');
+  if (roundUploadBtn) {
+    roundUploadBtn.disabled = !isSaved;
+    roundUploadBtn.title = isSaved ? 'Upload an image for this round' : 'Save quiz to server first to enable image upload';
+  }
+  const roundHint = document.getElementById('round-img-status');
+  if (roundHint) {
+    roundHint.innerHTML = !isSaved ? '<span class="image-upload-hint">Save quiz to server to enable upload</span>' : '';
+  }
 
   renderQuestions();
 }
@@ -704,7 +754,13 @@ function renderQuestionCard(q, idx) {
   }
 
   // Answer info (optional) and image can be added to any question type
+  const isSaved = Boolean(currentQuizPath);
+  const uploadDisabled = !isSaved ? 'disabled' : '';
+  const uploadTitle = !isSaved ? 'title="Save quiz to server first to enable image upload"' : '';
+  const uploadHint = !isSaved ? '<span class="image-upload-hint">Save quiz to server to enable upload</span>' : '';
   const imgThumbStyle = q.image ? 'class="image-preview-thumb visible"' : 'class="image-preview-thumb"';
+  const resolvedImgSrc = getEditorImageUrl(q.image || '');
+
   extraFields += `
     <div class="form-group full">
       <label>Answer Info (optional)</label>
@@ -713,14 +769,14 @@ function renderQuestionCard(q, idx) {
     <div class="form-group full image-field-group">
       <label>Image (optional)</label>
       <div class="image-preview-wrap">
-        <img id="img-preview-${idx}" ${imgThumbStyle} src="${escapeHtml(q.image || '')}" alt="Preview">
+        <img id="img-preview-${idx}" ${imgThumbStyle} src="${escapeHtml(resolvedImgSrc)}" alt="Preview">
         <div class="image-url-input-wrap">
           <div class="image-upload-row">
-            <input type="url" id="img-url-${idx}" value="${escapeHtml(q.image || '')}" placeholder="https://... or /quiz-images/..."
+            <input type="text" id="img-url-${idx}" value="${escapeHtml(q.image || '')}" placeholder="e.g. images/photo.jpg or https://..."
                    oninput="updateQuestion(${idx}, 'image', this.value); updateImagePreview(${idx}, this.value)" style="flex:1">
-            <button type="button" class="btn-upload" onclick="triggerImageUpload(${idx})">⬆ Upload...</button>
+            <button type="button" class="btn-upload" ${uploadDisabled} ${uploadTitle} onclick="triggerImageUpload(${idx})">⬆ Upload...</button>
           </div>
-          <span class="image-upload-status" id="img-status-${idx}"></span>
+          <span class="image-upload-status" id="img-status-${idx}">${uploadHint}</span>
         </div>
       </div>
     </div>
@@ -1008,8 +1064,22 @@ function updateOrderItem(qIdx, iIdx, value) {
 function updateImagePreview(qIdx, url) {
   const thumb = document.getElementById(`img-preview-${qIdx}`);
   if (!thumb) return;
-  if (url) {
-    thumb.src = url;
+  const resolved = getEditorImageUrl(url);
+  if (resolved) {
+    thumb.src = resolved;
+    thumb.classList.add('visible');
+  } else {
+    thumb.src = '';
+    thumb.classList.remove('visible');
+  }
+}
+
+function updateRoundImagePreview(url) {
+  const thumb = document.getElementById('round-img-preview');
+  if (!thumb) return;
+  const resolved = getEditorImageUrl(url);
+  if (resolved) {
+    thumb.src = resolved;
     thumb.classList.add('visible');
   } else {
     thumb.src = '';
@@ -1018,12 +1088,31 @@ function updateImagePreview(qIdx, url) {
 }
 
 function triggerImageUpload(qIdx) {
+  if (!currentQuizPath) {
+    showToast('Please save the quiz to the server first so we know its parent folder.');
+    return;
+  }
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
   input.onchange = (e) => {
     const file = e.target.files[0];
     if (file) handleImageUpload(qIdx, file);
+  };
+  input.click();
+}
+
+function triggerRoundImageUpload() {
+  if (!currentQuizPath) {
+    showToast('Please save the quiz to the server first so we know its parent folder.');
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) handleRoundImageUpload(file);
   };
   input.click();
 }
@@ -1060,6 +1149,10 @@ async function resizeAndCompressImage(file, maxWidth = 800, maxHeight = 600, qua
 }
 
 async function handleImageUpload(qIdx, file) {
+  if (!currentQuizPath) {
+    showToast('Please save the quiz to the server first.');
+    return;
+  }
   const statusEl = document.getElementById(`img-status-${qIdx}`);
   if (statusEl) statusEl.textContent = 'Compressing...';
 
@@ -1070,17 +1163,51 @@ async function handleImageUpload(qIdx, file) {
 
     const formData = new FormData();
     formData.append('file', compressed, file.name.replace(/\.[^.]+$/, '.jpg'));
+    formData.append('quiz_file', currentQuizPath);
 
     const res = await fetch('/api/quizzes/upload-image', { method: 'POST', body: formData });
     const data = await res.json();
 
-    if (!data.ok) throw new Error('Upload failed');
+    if (!data.ok) throw new Error(data.detail || 'Upload failed');
 
     // Update state and UI
     quiz.rounds[activeRoundIndex].questions[qIdx].image = data.path;
     const urlInput = document.getElementById(`img-url-${qIdx}`);
     if (urlInput) urlInput.value = data.path;
     updateImagePreview(qIdx, data.path);
+    if (statusEl) statusEl.textContent = `Saved locally (${sizeKB}KB)`;
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+async function handleRoundImageUpload(file) {
+  if (!currentQuizPath) {
+    showToast('Please save the quiz to the server first.');
+    return;
+  }
+  const statusEl = document.getElementById('round-img-status');
+  if (statusEl) statusEl.textContent = 'Compressing...';
+
+  try {
+    const compressed = await resizeAndCompressImage(file);
+    const sizeKB = Math.round(compressed.size / 1024);
+    if (statusEl) statusEl.textContent = `Uploading (${sizeKB}KB)...`;
+
+    const formData = new FormData();
+    formData.append('file', compressed, file.name.replace(/\.[^.]+$/, '.jpg'));
+    formData.append('quiz_file', currentQuizPath);
+
+    const res = await fetch('/api/quizzes/upload-image', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!data.ok) throw new Error(data.detail || 'Upload failed');
+
+    // Update state and UI
+    quiz.rounds[activeRoundIndex].image = data.path;
+    const urlInput = document.getElementById('round-image');
+    if (urlInput) urlInput.value = data.path;
+    updateRoundImagePreview(data.path);
     if (statusEl) statusEl.textContent = `Saved locally (${sizeKB}KB)`;
   } catch (err) {
     if (statusEl) statusEl.textContent = `Error: ${err.message}`;
@@ -1109,6 +1236,7 @@ document.getElementById('round-instructions').addEventListener('input', (e) => {
 document.getElementById('round-image').addEventListener('input', (e) => {
   if (activeRoundIndex >= 0) {
     quiz.rounds[activeRoundIndex].image = e.target.value;
+    updateRoundImagePreview(e.target.value);
   }
 });
 
@@ -1119,22 +1247,38 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   const yaml = generateYAML();
   const filename = currentFilename || (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
 
-  // Save to server's quizzes folder directly
   try {
     const res = await fetch('/api/quizzes/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename, content: yaml })
+      body: JSON.stringify({ path: currentQuizPath || null, filename, content: yaml })
     });
     const data = await res.json();
     if (data.ok) {
       currentFilename = data.filename;
+      currentQuizPath = data.path;
       showToast(`Saved as ${data.filename} on server`);
+      renderRoundEditor();
     } else {
-      throw new Error('Save failed');
+      throw new Error(data.detail || 'Save failed');
     }
   } catch (e) {
     showToast(`Save failed: ${e.message}`);
+  }
+});
+
+document.getElementById('btn-new').addEventListener('click', () => {
+  if (confirm('Create a new quiz? Any unsaved changes will be lost.')) {
+    quiz = {
+      title: 'My Quiz Night',
+      rounds: []
+    };
+    activeRoundIndex = -1;
+    currentFilename = '';
+    currentQuizPath = '';
+    renderSidebar();
+    renderRoundEditor();
+    showToast('New quiz started. Save to enable image upload.');
   }
 });
 
@@ -1195,11 +1339,13 @@ document.getElementById('btn-open').addEventListener('click', () => {
     const file = e.target.files[0];
     if (!file) return;
     currentFilename = file.name;
+    currentQuizPath = '';
     const text = await file.text();
     parseYAML(text);
     activeRoundIndex = 0;
     renderSidebar();
     renderRoundEditor();
+    showToast(`Opened ${file.name}. Save to server to enable image upload.`);
   };
   input.click();
 });
@@ -1490,8 +1636,32 @@ function parseYAML(text) {
 
 // ── Initialize ──────────────────────────────────────────────────────────────
 
-renderSidebar();
-renderRoundEditor();
+async function initEditor() {
+  const params = new URLSearchParams(window.location.search);
+  const fileParam = params.get('file');
+  if (fileParam) {
+    try {
+      const res = await fetch(`/api/quizzes/load?file=${encodeURIComponent(fileParam)}`);
+      if (res.ok) {
+        const data = await res.json();
+        currentFilename = data.filename;
+        currentQuizPath = data.path;
+        parseYAML(data.content);
+        activeRoundIndex = 0;
+        renderSidebar();
+        renderRoundEditor();
+        showToast(`Loaded ${data.filename}`);
+        return;
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  }
+  renderSidebar();
+  renderRoundEditor();
+}
+
+initEditor();
 </script>
 </body>
 </html>
