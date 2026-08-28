@@ -76,12 +76,77 @@ manager = ConnectionManager()
 _timer_tasks: dict[str, asyncio.Task] = {}
 
 
+def _score_current_question(session_id: str, session: dict):
+    quiz = session["quiz_data"]
+    rounds = quiz.get("rounds", [])
+    ri = session["current_round_index"]
+    qi = session["current_question_index"]
+
+    current_round = rounds[ri] if ri < len(rounds) else None
+    if not current_round:
+        return
+    qs = current_round.get("questions", [])
+    if qi >= len(qs):
+        return
+    question = qs[qi]
+    answers = db.get_answers(session_id, ri, qi)
+    bonus_pts = session.get("bonus_points", 0)
+
+    if question["type"] == "numeric":
+        # Numeric: closest wins
+        ta_list = [{"team_id": a["team_id"], "answer_data": a["answer_data"]} for a in answers]
+        scores = quiz_loader.score_numeric_round(ta_list, question)
+
+        # Apply bonus points to closest answers
+        if bonus_pts > 0:
+            try:
+                correct_val = float(question["answer"])
+                distances = []
+                for a in answers:
+                    try:
+                        val = float(a["answer_data"][0]) if a["answer_data"] else None
+                    except (ValueError, TypeError):
+                        val = None
+                    if val is not None:
+                        distances.append((abs(val - correct_val), a["team_id"], a["id"]))
+                distances.sort(key=lambda x: x[0])
+
+                # Award bonus points (N, N-1, ..., 1) to closest correct
+                for i, (dist, tid, aid) in enumerate(distances):
+                    if i < bonus_pts and scores.get(tid, 0) > 0:
+                        bonus = bonus_pts - i
+                        scores[tid] = scores.get(tid, 0) + bonus
+            except (ValueError, TypeError):
+                pass
+
+        for answer in answers:
+            if not answer["score_overridden"]:
+                new_score = scores.get(answer["team_id"], 0)
+                db.override_score(answer["id"], new_score)
+    else:
+        # Other types: fastest correct gets bonus
+        if bonus_pts > 0:
+            # Sort correct answers by submission time
+            correct_answers = [
+                a for a in answers
+                if not a["score_overridden"] and a["score"] > 0
+            ]
+            correct_answers.sort(key=lambda x: x.get("submitted_at", ""))
+
+            # Award bonus to top N fastest correct answers
+            for i, answer in enumerate(correct_answers):
+                if i < bonus_pts:
+                    bonus = bonus_pts - i
+                    db.override_score(answer["id"], answer["score"] + bonus)
+
+
 async def _run_timer(session_id: str, duration: int):
     """Auto-advance state after timer expires."""
     await asyncio.sleep(duration)
     session = db.get_session(session_id)
     if not session or session["state"] != "question":
         return
+    _score_current_question(session_id, session)
     # Move to answer reveal
     db.update_session(session_id, {"state": "answer_reveal"})
     session = db.get_session(session_id)
@@ -613,55 +678,7 @@ async def session_action(session_id: str, req: ActionRequest):
         cancel_timer(session_id)
 
         # Score the question
-        current_round = rounds[ri] if ri < len(rounds) else None
-        if current_round:
-            question = current_round["questions"][qi]
-            answers = db.get_answers(session_id, ri, qi)
-            bonus_pts = session.get("bonus_points", 0)
-
-            if question["type"] == "numeric":
-                # Numeric: closest wins
-                ta_list = [{"team_id": a["team_id"], "answer_data": a["answer_data"]} for a in answers]
-                scores = quiz_loader.score_numeric_round(ta_list, question)
-
-                # Apply bonus points to closest answers
-                if bonus_pts > 0:
-                    correct_val = float(question["answer"])
-                    distances = []
-                    for a in answers:
-                        try:
-                            val = float(a["answer_data"][0]) if a["answer_data"] else None
-                        except (ValueError, TypeError):
-                            val = None
-                        if val is not None:
-                            distances.append((abs(val - correct_val), a["team_id"], a["id"]))
-                    distances.sort(key=lambda x: x[0])
-
-                    # Award bonus points (N, N-1, ..., 1) to closest correct
-                    for i, (dist, tid, aid) in enumerate(distances):
-                        if i < bonus_pts and scores.get(tid, 0) > 0:
-                            bonus = bonus_pts - i
-                            scores[tid] = scores.get(tid, 0) + bonus
-
-                for answer in answers:
-                    if not answer["score_overridden"]:
-                        new_score = scores.get(answer["team_id"], 0)
-                        db.override_score(answer["id"], new_score)
-            else:
-                # Other types: fastest correct gets bonus
-                if bonus_pts > 0:
-                    # Sort correct answers by submission time
-                    correct_answers = [
-                        a for a in answers
-                        if not a["score_overridden"] and a["score"] > 0
-                    ]
-                    correct_answers.sort(key=lambda x: x.get("submitted_at", ""))
-
-                    # Award bonus to top N fastest correct answers
-                    for i, answer in enumerate(correct_answers):
-                        if i < bonus_pts:
-                            bonus = bonus_pts - i
-                            db.override_score(answer["id"], answer["score"] + bonus)
+        _score_current_question(session_id, session)
 
         db.update_session(session_id, {"state": "answer_reveal"})
         session = db.get_session(session_id)
