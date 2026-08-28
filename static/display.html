@@ -102,11 +102,25 @@
   <!-- Answer Reveal State -->
   <div id="display-reveal" class="display-state">
     <div class="reveal-screen">
-      <div class="reveal-title">The Answer</div>
-      <div id="display-reveal-question" class="reveal-question-text"></div>
-      <div id="display-reveal-answer" class="reveal-answer"></div>
-      <div id="display-reveal-info" class="reveal-info"></div>
-      <div id="display-reveal-options" class="reveal-options"></div>
+      <div class="reveal-container">
+        <div class="reveal-answer-panel">
+          <div class="reveal-title">The Answer</div>
+          <div id="display-reveal-image" class="display-reveal-image hidden">
+            <img id="display-reveal-img" src="" alt="Question Image">
+          </div>
+          <div id="display-reveal-question" class="reveal-question-text"></div>
+          <div id="display-reveal-answer" class="reveal-answer"></div>
+          <div id="display-reveal-info" class="reveal-info"></div>
+          <div id="display-reveal-options" class="reveal-options"></div>
+        </div>
+        <div class="reveal-scores-panel">
+          <div class="reveal-scores-header">
+            <span class="reveal-scores-icon">&#11088;</span>
+            <span class="reveal-scores-title">Points This Question</span>
+          </div>
+          <div id="display-reveal-scores-list" class="reveal-scores-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 

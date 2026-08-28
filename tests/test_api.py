@@ -186,4 +186,88 @@ def test_resolve_session_image_url():
     assert _resolve_session_image_url("s1", "round1.jpg") == "/api/sessions/s1/image?path=round1.jpg"
 
 
+def test_question_reveal_scoring_and_answers(tmp_path):
+    quiz_yaml = """title: "Score Test"
+rounds:
+  - name: "Round 1"
+    questions:
+      - type: multiple_choice
+        text: "What is 2+2?"
+        options: ["3", "4", "5"]
+        correct: 1
+        points: 10
+"""
+    q_file = tmp_path / "score_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    # Create session with 2 bonus points
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file), 'bonus_points': 2})
+    assert res.status_code == 200
+    session_id = res.json()['session_id']
+    host_secret = res.json()['host_secret']
+
+    # Register 3 teams
+    t1_res = client.post(f'/api/sessions/{session_id}/join', json={'team_name': 'Team Alpha', 'browser_id': 'b1'})
+    t1_id = t1_res.json()['team_id']
+
+    t2_res = client.post(f'/api/sessions/{session_id}/join', json={'team_name': 'Team Beta', 'browser_id': 'b2'})
+    t2_id = t2_res.json()['team_id']
+
+    t3_res = client.post(f'/api/sessions/{session_id}/join', json={'team_name': 'Team Gamma', 'browser_id': 'b3'})
+    t3_id = t3_res.json()['team_id']
+
+    # Host starts question
+    action_res = client.post(f'/api/sessions/{session_id}/action', json={
+        'host_secret': host_secret,
+        'action': 'start_question'
+    })
+    assert action_res.status_code == 200
+    assert action_res.json()['state'] == 'question'
+
+    # Team Alpha submits correct answer (index 1) first
+    a1_res = client.post(f'/api/sessions/{session_id}/answer', json={
+        'team_id': t1_id,
+        'answer_data': [1]
+    })
+    assert a1_res.status_code == 200
+    assert a1_res.json()['score'] == 10
+
+    # Team Beta submits correct answer (index 1) second
+    a2_res = client.post(f'/api/sessions/{session_id}/answer', json={
+        'team_id': t2_id,
+        'answer_data': [1]
+    })
+    assert a2_res.status_code == 200
+    assert a2_res.json()['score'] == 10
+
+    # Team Gamma submits incorrect answer (index 0)
+    a3_res = client.post(f'/api/sessions/{session_id}/answer', json={
+        'team_id': t3_id,
+        'answer_data': [0]
+    })
+    assert a3_res.status_code == 200
+    assert a3_res.json()['score'] == 0
+
+    # Host reveals answer
+    reveal_res = client.post(f'/api/sessions/{session_id}/action', json={
+        'host_secret': host_secret,
+        'action': 'reveal_answer'
+    })
+    assert reveal_res.status_code == 200
+    assert reveal_res.json()['state'] == 'answer_reveal'
+
+    # Verify answers stored in db
+    import db
+    answers = db.get_answers(session_id, 0, 0)
+    ans_by_team = {a['team_id']: a['score'] for a in answers}
+    
+    # Team Alpha got 10 + 2 bonus = 12
+    assert ans_by_team[t1_id] == 12
+    # Team Beta got 10 + 1 bonus = 11
+    assert ans_by_team[t2_id] == 11
+    # Team Gamma got 0
+    assert ans_by_team[t3_id] == 0
+
+
+
 

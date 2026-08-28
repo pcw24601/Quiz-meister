@@ -297,6 +297,18 @@ function renderReveal(state) {
     optionsEl.innerHTML = '';
   }
 
+  // Image
+  const imgWrap = document.getElementById('display-reveal-image');
+  const imgEl = document.getElementById('display-reveal-img');
+  if (imgWrap && imgEl) {
+    if (q.image) {
+      imgEl.src = q.image;
+      imgWrap.classList.remove('hidden');
+    } else {
+      imgWrap.classList.add('hidden');
+    }
+  }
+
   // Show answer_info if present
   if (q.answer_info) {
     infoEl.textContent = q.answer_info;
@@ -305,6 +317,75 @@ function renderReveal(state) {
     infoEl.textContent = '';
     infoEl.classList.add('hidden');
   }
+
+  // Render points per team for this question, sorted with highest score at the top
+  renderQuestionScores(state);
+}
+
+function renderQuestionScores(state) {
+  const listEl = document.getElementById('display-reveal-scores-list');
+  if (!listEl) return;
+
+  const teams = state.teams || [];
+  const answers = state.answers || [];
+  const answerMap = Object.fromEntries(answers.map(a => [a.team_id, a]));
+
+  if (teams.length === 0) {
+    listEl.innerHTML = '<div class="reveal-score-empty">No teams registered</div>';
+    return;
+  }
+
+  // Map each team to their question score
+  const teamScores = teams.map(t => {
+    const ans = answerMap[t.id];
+    return {
+      team_id: t.id,
+      name: t.name,
+      score: ans ? (ans.score ?? 0) : 0,
+      submitted_at: ans ? ans.submitted_at : null,
+      score_overridden: ans ? ans.score_overridden : false,
+      has_answered: !!ans,
+    };
+  });
+
+  // Sort with the highest score at the top
+  teamScores.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    // Tie-breaker: earlier submission time first
+    if (a.submitted_at && b.submitted_at && a.submitted_at !== b.submitted_at) {
+      return a.submitted_at.localeCompare(b.submitted_at);
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  // Calculate ranks
+  let currentRank = 1;
+  let lastScore = null;
+  const rankedTeams = teamScores.map((item, idx) => {
+    if (lastScore !== item.score) {
+      currentRank = idx + 1;
+      lastScore = item.score;
+    }
+    return { ...item, rank: currentRank };
+  });
+
+  listEl.innerHTML = rankedTeams.map((item, idx) => {
+    const isPositive = item.score > 0;
+    const rankClass = item.rank === 1 ? 'rank-1' : item.rank === 2 ? 'rank-2' : item.rank === 3 ? 'rank-3' : '';
+    const rankDisplay = item.rank <= 3 ? ['1st', '2nd', '3rd'][item.rank - 1] : `${item.rank}th`;
+    const scoreDisplay = isPositive ? `+${item.score} pts` : `0 pts`;
+    const scoreClass = isPositive ? 'score-positive' : 'score-zero';
+
+    return `
+      <div class="reveal-score-row ${rankClass}" style="animation-delay: ${idx * 50}ms">
+        <div class="reveal-score-rank ${rankClass}">${rankDisplay}</div>
+        <div class="reveal-score-name" title="${escHtml(item.name)}">${escHtml(item.name)}</div>
+        <div class="reveal-score-points ${scoreClass}">${scoreDisplay}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 // ── Leaderboard ────────────────────────────────────────────────────────────────
