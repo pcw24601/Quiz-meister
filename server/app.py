@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -103,6 +103,18 @@ def cancel_timer(session_id: str):
 
 # ── State broadcast helper ────────────────────────────────────────────────────
 
+def _resolve_session_image_url(session_id: str, img_ref: str | None) -> str | None:
+    if not img_ref:
+        return None
+    ref = str(img_ref).strip()
+    if not ref:
+        return None
+    if ref.startswith(("http://", "https://", "data:", "/quiz-images/", "/static/")):
+        return ref
+    clean_path = ref.lstrip("/")
+    return f"/api/sessions/{session_id}/image?path={clean_path}"
+
+
 async def _broadcast_state(session_id: str, session: dict):
     """Send full game state to all connected clients."""
     if not session:
@@ -117,10 +129,17 @@ async def _broadcast_state(session_id: str, session: dict):
     if current_round:
         qs = current_round.get("questions", [])
         if qi < len(qs):
-            current_question = qs[qi]
+            current_question = dict(qs[qi])
 
     # Strip correct answers from question for player view (sent separately)
     player_question = _strip_answers(current_question) if current_question else None
+
+    # Resolve relative image URLs for clients
+    round_img = _resolve_session_image_url(session_id, current_round.get("image")) if current_round else None
+    if current_question and current_question.get("image"):
+        current_question["image"] = _resolve_session_image_url(session_id, current_question.get("image"))
+    if player_question and player_question.get("image"):
+        player_question["image"] = _resolve_session_image_url(session_id, player_question.get("image"))
 
     teams = db.get_teams(session_id)
     leaderboard = db.get_leaderboard(session_id)
@@ -140,7 +159,7 @@ async def _broadcast_state(session_id: str, session: dict):
         "question_index": qi,
         "round_name": current_round["name"] if current_round else "",
         "round_instructions": current_round.get("instructions") if current_round else None,
-        "round_image": current_round.get("image") if current_round else None,
+        "round_image": round_img,
         "total_rounds": len(rounds),
         "total_questions": len(current_round["questions"]) if current_round else 0,
         "question": player_question,
@@ -259,47 +278,142 @@ async def load_quiz_content(file: str):
 
 
 class SaveQuizRequest(BaseModel):
-    filename: str
+    filename: str | None = None
+    path: str | None = None
     content: str
 
 
 @app.post("/api/quizzes/save")
 async def save_quiz(req: SaveQuizRequest):
-    # Sanitize filename
-    filename = req.filename.replace("..", "").replace("/", "").replace("\\", "")
-    if not filename.endswith((".yaml", ".yml")):
-        filename += ".yaml"
-    path = QUIZZES_DIR / filename
+    if req.path:
+        provided = req.path.strip()
+        if os.path.isabs(provided):
+            dest_path = Path(provided)
+        else:
+            dest_path = (QUIZZES_DIR / provided).resolve()
+    elif req.filename:
+        filename = req.filename.replace("..", "").replace("/", "").replace("\\", "").strip()
+        if not filename.endswith((".yaml", ".yml")):
+            filename += ".yaml"
+        dest_path = (QUIZZES_DIR / filename).resolve()
+    else:
+        dest_path = (QUIZZES_DIR / "quiz.yaml").resolve()
+
+    if not dest_path.name.endswith((".yaml", ".yml")):
+        dest_path = dest_path.with_suffix(".yaml")
+
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest_path, "w", encoding="utf-8") as f:
             f.write(req.content)
-        return {"ok": True, "filename": filename}
+        return {"ok": True, "filename": dest_path.name, "path": str(dest_path)}
     except Exception as e:
         raise HTTPException(500, f"Failed to save: {e}")
 
 
 @app.post("/api/quizzes/upload-image")
-async def upload_image(file: UploadFile = File(...)):
-    """Accept an image upload and save it to quizzes/images/.
-    Returns the static URL path for use in quiz YAML files.
-    The client should compress/resize images before uploading.
+async def upload_image(file: UploadFile = File(...), quiz_file: str | None = Form(None)):
+    """Accept an image upload and save it to an images/ folder relative to the quiz YAML file.
+    Returns the relative path for use in quiz YAML files.
     """
-    # Sanitize and make filename unique
+    if not quiz_file or not quiz_file.strip():
+        raise HTTPException(400, "quiz_file is required. Please save the quiz before uploading images.")
+
+    provided = quiz_file.strip()
+    if os.path.isabs(provided):
+        quiz_path = Path(provided).resolve()
+    else:
+        quiz_path = (QUIZZES_DIR / provided).resolve()
+
     original_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
     suffix = Path(original_name).suffix.lower() or ".jpg"
-    if suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-        raise HTTPException(400, "Unsupported image type. Use jpg, png, gif, or webp.")
+    if suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
+        raise HTTPException(400, "Unsupported image type. Use jpg, png, gif, webp, or svg.")
+
     unique_name = f"{uuid.uuid4().hex}{suffix}"
-    images_dir = QUIZZES_DIR / "images"
-    images_dir.mkdir(exist_ok=True)
+    images_dir = quiz_path.parent / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
     dest = images_dir / unique_name
     try:
         content = await file.read()
         with open(dest, "wb") as f:
             f.write(content)
-        return {"ok": True, "path": f"/quiz-images/{unique_name}"}
+        return {
+            "ok": True,
+            "path": f"images/{unique_name}",
+            "filename": unique_name,
+        }
     except Exception as e:
         raise HTTPException(500, f"Failed to save image: {e}")
+
+
+@app.get("/api/quizzes/image")
+async def get_quiz_image(quiz_file: str, path: str):
+    """Serve an image relative to a quiz YAML file (e.g. for editor previews)."""
+    if not quiz_file:
+        raise HTTPException(400, "quiz_file is required")
+    provided = quiz_file.strip()
+    if os.path.isabs(provided):
+        quiz_path = Path(provided).resolve()
+    else:
+        quiz_path = (QUIZZES_DIR / provided).resolve()
+
+    quiz_dir = quiz_path.parent
+    clean_path = path.lstrip("/")
+
+    img_path = (quiz_dir / clean_path).resolve()
+    if not img_path.exists() or not img_path.is_file():
+        alt_path = (quiz_dir / "images" / clean_path).resolve()
+        if alt_path.exists() and alt_path.is_file():
+            img_path = alt_path
+        else:
+            fallback = (QUIZZES_DIR / "images" / clean_path).resolve()
+            if fallback.exists() and fallback.is_file():
+                img_path = fallback
+            else:
+                raise HTTPException(404, f"Image not found: {path}")
+
+    if img_path.suffix.lower() not in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'):
+        raise HTTPException(400, "Invalid image format")
+
+    return FileResponse(str(img_path))
+
+
+@app.get("/api/sessions/{session_id}/image")
+async def get_session_image(session_id: str, path: str):
+    """Serve an image relative to the session's active quiz YAML file."""
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    quiz_file = session.get("quiz_file")
+    if not quiz_file:
+        raise HTTPException(404, "Quiz file not found in session")
+
+    provided = str(quiz_file).strip()
+    if os.path.isabs(provided):
+        quiz_path = Path(provided).resolve()
+    else:
+        quiz_path = (QUIZZES_DIR / provided).resolve()
+
+    quiz_dir = quiz_path.parent
+    clean_path = path.lstrip("/")
+
+    img_path = (quiz_dir / clean_path).resolve()
+    if not img_path.exists() or not img_path.is_file():
+        alt_path = (quiz_dir / "images" / clean_path).resolve()
+        if alt_path.exists() and alt_path.is_file():
+            img_path = alt_path
+        else:
+            fallback = (QUIZZES_DIR / "images" / clean_path).resolve()
+            if fallback.exists() and fallback.is_file():
+                img_path = fallback
+            else:
+                raise HTTPException(404, f"Image not found: {path}")
+
+    if img_path.suffix.lower() not in ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'):
+        raise HTTPException(400, "Invalid image format")
+
+    return FileResponse(str(img_path))
 
 
 class CreateSessionRequest(BaseModel):
