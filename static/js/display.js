@@ -83,32 +83,35 @@ function handleState(state) {
 
 // ── Lobby ──────────────────────────────────────────────────────────────────────
 
+function renderJoinQR(container, size) {
+  fetch('/api/config').then(r => r.json()).then(cfg => {
+    const joinUrl = `${cfg.player_url}?session=${sessionId}`;
+    new QRCode(container, {
+      text: joinUrl,
+      width: size,
+      height: size,
+      colorDark: '#0f172a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }).catch(() => {
+    const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
+    new QRCode(container, {
+      text: joinUrl, width: size, height: size,
+      colorDark: '#0f172a', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  });
+}
+
 function renderLobby(state) {
   showState('display-lobby');
   document.getElementById('display-quiz-title-lobby').textContent = state.quiz_title;
+  document.getElementById('display-session-code').textContent = sessionId;
 
   // QR code (only render once)
   if (!qrRendered) {
-    fetch('/api/config').then(r => r.json()).then(cfg => {
-      const joinUrl = `${cfg.player_url}?session=${sessionId}`;
-      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-      new QRCode(document.getElementById('display-qr'), {
-        text: joinUrl,
-        width: 200,
-        height: 200,
-        colorDark: '#0f172a',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
-    }).catch(() => {
-      const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
-      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-      new QRCode(document.getElementById('display-qr'), {
-        text: joinUrl, width: 200, height: 200,
-        colorDark: '#0f172a', colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
-    });
+    renderJoinQR(document.getElementById('display-qr'), 420);
     qrRendered = true;
   }
 
