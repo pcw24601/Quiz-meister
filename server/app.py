@@ -581,7 +581,9 @@ async def get_session(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
-    return session
+    # Unauthenticated endpoint — don't leak the host secret or the full quiz
+    # (with answers) to anyone who can guess/enumerate a session ID.
+    return {k: v for k, v in session.items() if k not in ("host_secret", "quiz_data")}
 
 
 class JoinRequest(BaseModel):

@@ -406,3 +406,38 @@ rounds:
         assert state['question_index'] == 0
         assert state['next_is_end'] is True
         assert state['next_question'] is None
+
+
+def test_session_id_is_five_digit_number(tmp_path):
+    quiz_yaml = 'title: "Session ID Test"\nrounds: []\n'
+    q_file = tmp_path / "sid_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res1 = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    res2 = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    assert res1.status_code == 200 and res2.status_code == 200
+
+    sid1 = res1.json()['session_id']
+    sid2 = res2.json()['session_id']
+
+    assert sid1 != sid2
+    for sid in (sid1, sid2):
+        assert sid.isdigit()
+        assert len(sid) == 5
+        assert 10000 <= int(sid) <= 99999
+
+
+def test_get_session_does_not_leak_host_secret_or_quiz_data(tmp_path):
+    quiz_yaml = 'title: "Leak Test"\nrounds: []\n'
+    q_file = tmp_path / "leak_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+
+    get_res = client.get(f'/api/sessions/{session_id}')
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert 'host_secret' not in data
+    assert 'quiz_data' not in data
+    assert data['id'] == session_id

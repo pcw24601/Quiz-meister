@@ -3,6 +3,7 @@ In-memory database store for Quiz-Meister.
 All data is lost on server restart. No external dependencies required.
 """
 
+import secrets
 import uuid
 from typing import Any
 
@@ -16,9 +17,24 @@ _answers: dict[str, dict] = {}    # answer_id → answer
 
 # ── Sessions ──────────────────────────────────────────────────────────────────
 
+def _generate_session_id() -> str:
+    """A short numeric code players can type by hand. ~90,000 5-digit codes
+    is far more than one machine will ever hold concurrently."""
+    for _ in range(20):
+        code = str(secrets.randbelow(90000) + 10000)
+        if code not in _sessions:
+            return code
+    # Practically unreachable — widen the code space rather than fail.
+    for _ in range(20):
+        code = str(secrets.randbelow(900000) + 100000)
+        if code not in _sessions:
+            return code
+    return str(uuid.uuid4())
+
+
 def create_session(quiz_file: str, quiz_data: dict, host_secret: str,
                    bonus_points: int = 0) -> dict:
-    session_id = str(uuid.uuid4())
+    session_id = _generate_session_id()
     session = {
         "id": session_id,
         "quiz_file": quiz_file,
