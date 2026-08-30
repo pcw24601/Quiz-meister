@@ -270,28 +270,40 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
   padding: var(--space-4);
   background: var(--neutral-0);
   border: 2px solid var(--neutral-200);
   border-radius: var(--radius-lg);
-  cursor: grab;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   user-select: none;
-  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
-  touch-action: none;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.order-item:active { cursor: grabbing; }
-
-.order-item.dragging {
-  opacity: 0.5;
-  transform: scale(1.02);
-  box-shadow: var(--shadow-lg);
+.order-item.selected {
+  border-color: var(--primary-400);
+  background: var(--primary-50);
 }
 
-.drag-handle {
-  color: var(--neutral-400);
-  font-size: 1.25rem;
-  cursor: grab;
+.order-seq {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--neutral-100);
+  color: var(--neutral-500);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.order-item.selected .order-seq {
+  background: var(--primary-500);
+  color: var(--neutral-0);
 }
 
 .order-item-text {
@@ -299,52 +311,6 @@
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--neutral-800);
-}
-
-.order-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.order-btn {
-  width: 36px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--neutral-100);
-  border: 1px solid var(--neutral-200);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  color: var(--neutral-600);
-  transition: all var(--transition-fast);
-}
-
-.order-btn:hover:not(:disabled) {
-  background: var(--primary-100);
-  border-color: var(--primary-300);
-  color: var(--primary-700);
-}
-
-.order-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.order-btn-up, .order-btn-down {
-  font-size: 0.625rem;
-}
-
-/* Hide buttons on desktop, show on mobile */
-@media (min-width: 768px) {
-  .order-buttons { display: none; }
-}
-
-@media (max-width: 767px) {
-  .drag-handle { display: none; }
 }
 
 /* ── Numeric ─────────────────────────────────────────────────────────────────*/

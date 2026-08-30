@@ -9,7 +9,7 @@ let timerInterval = null;
 let lastState = null;
 let selectedOptions = new Set();
 let orderItems = [];
-let dragSrcEl = null;
+let orderSequence = [];
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
 
@@ -198,6 +198,7 @@ function renderQuestion(state) {
   // Reset state
   selectedOptions.clear();
   orderItems = [];
+  orderSequence = [];
 
   // Check if already answered
   const alreadyAnswered = (state.answers || []).some(a => a.team_id === teamId);
@@ -317,108 +318,59 @@ document.getElementById('btn-submit-many').addEventListener('click', () => {
   submitAnswer([...selectedOptions]);
 });
 
-// ── Order drag-and-drop ────────────────────────────────────────────────────────
+// ── Order: tap-to-sequence ──────────────────────────────────────────────────
 
 function renderOrderList() {
   const list = document.getElementById('play-order-list');
-  const n = orderItems.length;
   list.innerHTML = orderItems.map((item, i) => `
-    <div class="order-item" draggable="true" data-pos="${i}">
-      <span class="drag-handle">&#8801;</span>
+    <button class="order-item" type="button" data-pos="${i}">
+      <span class="order-seq"></span>
       <span class="order-item-text">${escHtml(item.text)}</span>
-      <div class="order-buttons">
-        <button class="order-btn order-btn-up" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
-        <button class="order-btn order-btn-down" data-dir="1" ${i === n-1 ? 'disabled' : ''} aria-label="Move down">▼</button>
-      </div>
-    </div>
+    </button>
   `).join('');
 
-  list.querySelectorAll('.order-item').forEach(item => {
-    item.addEventListener('dragstart', dragStart);
-    item.addEventListener('dragover', dragOver);
-    item.addEventListener('drop', dragDrop);
-    item.addEventListener('dragend', dragEnd);
-    // Touch support
-    item.addEventListener('touchstart', touchStart, {passive:true});
-    item.addEventListener('touchmove', touchMove, {passive:false});
-    item.addEventListener('touchend', touchEnd);
+  list.querySelectorAll('.order-item').forEach(el => {
+    el.addEventListener('click', () => toggleOrderPosition(parseInt(el.dataset.pos)));
   });
 
-  // Up/down buttons for mobile
-  list.querySelectorAll('.order-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const item = btn.closest('.order-item');
-      const pos = parseInt(item.dataset.pos);
-      const dir = parseInt(btn.dataset.dir);
-      const newPos = pos + dir;
-      if (newPos >= 0 && newPos < orderItems.length) {
-        const tmp = orderItems[pos];
-        orderItems[pos] = orderItems[newPos];
-        orderItems[newPos] = tmp;
-        renderOrderList();
-      }
-    });
-  });
+  updateOrderList();
 }
 
-function dragStart(e) {
-  dragSrcEl = this;
-  this.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function dragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  return false;
-}
-
-function dragDrop(e) {
-  e.stopPropagation();
-  if (dragSrcEl !== this) {
-    const srcPos = parseInt(dragSrcEl.dataset.pos);
-    const dstPos = parseInt(this.dataset.pos);
-    const tmp = orderItems[srcPos];
-    orderItems[srcPos] = orderItems[dstPos];
-    orderItems[dstPos] = tmp;
-    renderOrderList();
+function toggleOrderPosition(pos) {
+  const idx = orderSequence.indexOf(pos);
+  if (idx !== -1) {
+    orderSequence.splice(idx, 1);
+  } else {
+    orderSequence.push(pos);
   }
-  return false;
+  updateOrderList();
+
+  if (orderSequence.length === orderItems.length) {
+    submitAnswer(orderSequence.map(p => orderItems[p].originalIndex));
+  }
 }
 
-function dragEnd() {
-  this.classList.remove('dragging');
-}
-
-// Touch drag
-let touchDragEl = null, touchStartY = 0;
-function touchStart(e) {
-  touchDragEl = this;
-  touchStartY = e.touches[0].clientY;
-}
-function touchMove(e) {
-  e.preventDefault();
-  if (!touchDragEl) return;
-  const y = e.touches[0].clientY;
+function updateOrderList() {
   const list = document.getElementById('play-order-list');
-  const items = list.querySelectorAll('.order-item');
-  items.forEach(item => {
-    const rect = item.getBoundingClientRect();
-    if (y >= rect.top && y <= rect.bottom && item !== touchDragEl) {
-      const srcPos = parseInt(touchDragEl.dataset.pos);
-      const dstPos = parseInt(item.dataset.pos);
-      const tmp = orderItems[srcPos];
-      orderItems[srcPos] = orderItems[dstPos];
-      orderItems[dstPos] = tmp;
-      renderOrderList();
+  list.querySelectorAll('.order-item').forEach(el => {
+    const pos = parseInt(el.dataset.pos);
+    const seq = orderSequence.indexOf(pos);
+    const badge = el.querySelector('.order-seq');
+    if (seq !== -1) {
+      badge.textContent = seq + 1;
+      el.classList.add('selected');
+    } else {
+      badge.textContent = '';
+      el.classList.remove('selected');
     }
   });
-}
-function touchEnd() { touchDragEl = null; }
 
-document.getElementById('btn-submit-order').addEventListener('click', () => {
-  submitAnswer(orderItems.map(item => item.originalIndex));
+  document.getElementById('btn-clear-order').disabled = orderSequence.length === 0;
+}
+
+document.getElementById('btn-clear-order').addEventListener('click', () => {
+  orderSequence = [];
+  updateOrderList();
 });
 
 // ── Numeric submit ─────────────────────────────────────────────────────────────
