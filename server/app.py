@@ -193,6 +193,47 @@ def _resolve_session_image_url(session_id: str, img_ref: str | None) -> str | No
     return f"/api/sessions/{session_id}/image?path={clean_path}"
 
 
+def _compute_next_question(rounds: list, ri: int, qi: int) -> dict:
+    """Peek at what comes after the current question, for the host 'coming up' preview."""
+    current_round = rounds[ri] if ri < len(rounds) else None
+    total_qs = len(current_round["questions"]) if current_round else 0
+
+    if current_round and qi + 1 < total_qs:
+        return {
+            "next_question": dict(current_round["questions"][qi + 1]),
+            "next_question_index": qi + 1,
+            "next_round_index": ri,
+            "next_round_name": current_round["name"],
+            "next_round_instructions": current_round.get("instructions"),
+            "next_is_new_round": False,
+            "next_is_end": False,
+        }
+
+    next_ri = ri + 1
+    if next_ri < len(rounds):
+        next_round = rounds[next_ri]
+        next_qs = next_round.get("questions", [])
+        return {
+            "next_question": dict(next_qs[0]) if next_qs else None,
+            "next_question_index": 0,
+            "next_round_index": next_ri,
+            "next_round_name": next_round["name"],
+            "next_round_instructions": next_round.get("instructions"),
+            "next_is_new_round": True,
+            "next_is_end": False,
+        }
+
+    return {
+        "next_question": None,
+        "next_question_index": None,
+        "next_round_index": None,
+        "next_round_name": None,
+        "next_round_instructions": None,
+        "next_is_new_round": False,
+        "next_is_end": True,
+    }
+
+
 async def _broadcast_state(session_id: str, session: dict):
     """Send full game state to all connected clients."""
     if not session:
@@ -228,6 +269,12 @@ async def _broadcast_state(session_id: str, session: dict):
 
     answered_team_ids = {a["team_id"] for a in answers_for_q}
 
+    next_info = _compute_next_question(rounds, ri, qi)
+    if next_info["next_question"] and next_info["next_question"].get("image"):
+        next_info["next_question"]["image"] = _resolve_session_image_url(
+            session_id, next_info["next_question"]["image"]
+        )
+
     payload = {
         "type": "state",
         "session_id": session_id,
@@ -248,6 +295,7 @@ async def _broadcast_state(session_id: str, session: dict):
         "answered_count": len(answered_team_ids),
         "total_teams": len(teams),
         "answers": answers_for_q,
+        **next_info,
     }
     await manager.broadcast(session_id, payload)
 

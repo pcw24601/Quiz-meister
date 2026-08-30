@@ -340,3 +340,69 @@ rounds:
     import db
     answers = db.get_answers(session_id, 1, 0)
     assert answers == []
+
+
+def test_next_question_preview_across_round_boundary(tmp_path):
+    quiz_yaml = """title: "Next Preview Test"
+rounds:
+  - name: "Round 1"
+    questions:
+      - type: multiple_choice
+        text: "Round 1 Q1"
+        options: ["A", "B"]
+        correct: 0
+  - name: "Round 2"
+    instructions: "Round 2 instructions"
+    questions:
+      - type: multiple_choice
+        text: "Round 2 Q1"
+        options: ["A", "B"]
+        correct: 0
+"""
+    q_file = tmp_path / "next_preview_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+    host_secret = res.json()['host_secret']
+
+    def do_action(action):
+        r = client.post(f'/api/sessions/{session_id}/action', json={'host_secret': host_secret, 'action': action})
+        assert r.status_code == 200
+
+    with client.websocket_connect(f'/ws/{session_id}') as ws:
+        ws.receive_json()  # initial lobby state
+
+        do_action('start_round')
+        ws.receive_json()  # round_intro
+
+        do_action('start_question')
+        state = ws.receive_json()
+
+        assert state['state'] == 'question'
+        assert state['round_index'] == 0
+        assert state['question_index'] == 0
+        assert state['next_is_new_round'] is True
+        assert state['next_is_end'] is False
+        assert state['next_round_index'] == 1
+        assert state['next_round_name'] == 'Round 2'
+        assert state['next_round_instructions'] == 'Round 2 instructions'
+        assert state['next_question_index'] == 0
+        assert state['next_question']['text'] == 'Round 2 Q1'
+
+        do_action('reveal_answer')
+        ws.receive_json()
+
+        do_action('start_question')  # round over -> leaderboard
+        ws.receive_json()
+
+        do_action('next_round')
+        ws.receive_json()  # round_intro for Round 2
+
+        do_action('start_question')  # Round 2 Q1
+        state = ws.receive_json()
+
+        assert state['round_index'] == 1
+        assert state['question_index'] == 0
+        assert state['next_is_end'] is True
+        assert state['next_question'] is None
