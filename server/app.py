@@ -23,7 +23,7 @@ import os
 import secrets
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -164,6 +164,19 @@ def cancel_timer(session_id: str):
     if session_id in _timer_tasks:
         _timer_tasks[session_id].cancel()
         del _timer_tasks[session_id]
+
+
+def _begin_question(session_id: str, ri: int, qi: int, question: dict):
+    """Put the session into 'question' state for (ri, qi) with a fresh timer."""
+    duration = question.get("time", 30)
+    ends = datetime.now(timezone.utc) + timedelta(seconds=duration)
+    db.update_session(session_id, {
+        "state": "question",
+        "current_round_index": ri,
+        "current_question_index": qi,
+        "timer_ends_at": ends.isoformat(),
+    })
+    start_timer(session_id, duration)
 
 
 # ── State broadcast helper ────────────────────────────────────────────────────
@@ -640,22 +653,8 @@ async def session_action(session_id: str, req: ActionRequest):
             raise HTTPException(400, "No more rounds")
 
         question = current_round["questions"][qi]
-        duration = question.get("time", 30)
-
-        timer_ends_at = datetime.now(timezone.utc)
-        # We'll store ISO string
-        from datetime import timedelta
-        ends = datetime.now(timezone.utc) + timedelta(seconds=duration)
-        ends_str = ends.isoformat()
-
-        db.update_session(session_id, {
-            "state": "question",
-            "current_round_index": ri,
-            "current_question_index": qi,
-            "timer_ends_at": ends_str,
-        })
+        _begin_question(session_id, ri, qi, question)
         session = db.get_session(session_id)
-        start_timer(session_id, duration)
         await _broadcast_state(session_id, session)
         return {"state": "question"}
 
@@ -699,12 +698,20 @@ async def session_action(session_id: str, req: ActionRequest):
         return {"state": "answer_reveal"}
 
     elif action == "restart_question":
-        # Clear all answers for current question and go back to lobby
+        if session["state"] not in ("question", "answer_reveal"):
+            raise HTTPException(400, f"Cannot restart question from state: {session['state']}")
+
+        current_round = rounds[ri] if ri < len(rounds) else None
+        if not current_round:
+            raise HTTPException(400, "No more rounds")
+
+        cancel_timer(session_id)
         db.clear_answers(session_id, ri, qi)
-        db.update_session(session_id, {"state": "lobby"})
+        question = current_round["questions"][qi]
+        _begin_question(session_id, ri, qi, question)
         session = db.get_session(session_id)
         await _broadcast_state(session_id, session)
-        return {"state": "lobby"}
+        return {"state": "question"}
 
     elif action == "next_round":
         if ri + 1 >= len(rounds):

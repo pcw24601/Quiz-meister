@@ -273,3 +273,70 @@ rounds:
 
 
 
+
+
+def test_restart_question_reruns_in_place_for_later_round(tmp_path):
+    quiz_yaml = """title: "Restart Test"
+rounds:
+  - name: "Round 1"
+    questions:
+      - type: multiple_choice
+        text: "Round 1 Q1"
+        options: ["A", "B"]
+        correct: 0
+  - name: "Round 2"
+    questions:
+      - type: multiple_choice
+        text: "Round 2 Q1"
+        options: ["A", "B"]
+        correct: 0
+      - type: multiple_choice
+        text: "Round 2 Q2"
+        options: ["A", "B"]
+        correct: 0
+"""
+    q_file = tmp_path / "restart_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    assert res.status_code == 200
+    session_id = res.json()['session_id']
+    host_secret = res.json()['host_secret']
+
+    team_res = client.post(f'/api/sessions/{session_id}/join', json={'team_name': 'Team Alpha', 'browser_id': 'b1'})
+    team_id = team_res.json()['team_id']
+
+    def do_action(action):
+        r = client.post(f'/api/sessions/{session_id}/action', json={'host_secret': host_secret, 'action': action})
+        assert r.status_code == 200
+        return r.json()
+
+    # Walk through round 1 into round 2, question 1 (index 0)
+    do_action('start_round')
+    do_action('start_question')
+    do_action('reveal_answer')
+    do_action('next_round')
+    started = do_action('start_question')
+    assert started['state'] == 'question'
+
+    # Team answers Round 2 Q1
+    ans_res = client.post(f'/api/sessions/{session_id}/answer', json={'team_id': team_id, 'answer_data': [0]})
+    assert ans_res.status_code == 200
+
+    reveal = do_action('reveal_answer')
+    assert reveal['state'] == 'answer_reveal'
+
+    session_before = client.get(f'/api/sessions/{session_id}').json()
+    timer_before = session_before['timer_ends_at']
+
+    restarted = do_action('restart_question')
+    assert restarted['state'] == 'question'
+
+    session_after = client.get(f'/api/sessions/{session_id}').json()
+    assert session_after['current_round_index'] == 1
+    assert session_after['current_question_index'] == 0
+    assert session_after['timer_ends_at'] != timer_before
+
+    import db
+    answers = db.get_answers(session_id, 1, 0)
+    assert answers == []
