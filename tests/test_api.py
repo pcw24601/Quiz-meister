@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 import server
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 client = TestClient(server.app)
 
@@ -24,34 +28,32 @@ def test_list_quizzes_with_path():
     assert any('example.yaml' in f or f.endswith('/example.yaml') or f.endswith('\\example.yaml') for f in data['files'])
 
 
-def test_load_gpc_2026_quiz():
+def test_load_example_quiz():
     import quiz_loader
-    import os
-    path = os.path.abspath('GCP_2026_quiz/gpc-2026.yaml')
+    path = str(REPO_ROOT / 'quizzes' / 'example.yaml')
     quiz = quiz_loader.load_quiz(path)
-    assert quiz['title'] == 'GPC_2026'
-    assert len(quiz['rounds']) == 10
-    
-    # Check answer_info on Old Testament Q1
-    ot_round = [r for r in quiz['rounds'] if r['name'] == 'Old Testament'][0]
-    q1 = ot_round['questions'][0]
+    assert quiz['title'] == 'General Knowledge Quiz Night'
+    assert len(quiz['rounds']) == 4
+
+    # Check first_letter question in Quickfire round
+    quickfire = [r for r in quiz['rounds'] if r['name'] == 'Quickfire'][0]
+    q1 = quickfire['questions'][0]
     assert q1['type'] == 'first_letter'
-    assert q1['answer'] == 'E'
-    assert q1['answer_info'] == 'Ezekiel'
+    assert q1['answer'] == 'H'
+    assert q1['note'] == 'Water = H2O'
 
-    # Check instructions on Say what?
-    say_what = [r for r in quiz['rounds'] if 'Say what' in r['name']][0]
-    assert '"Who wrote \'Alice in Wonderland\'?"' in say_what['instructions']
+    # Check instructions on Geography round
+    geography = [r for r in quiz['rounds'] if r['name'] == 'Geography'][0]
+    assert 'Test your knowledge of countries' in geography['instructions']
 
 
-def test_create_session_gpc_2026():
-    import os
-    path = os.path.abspath('GCP_2026_quiz/gpc-2026.yaml')
+def test_create_session_example_quiz():
+    path = str(REPO_ROOT / 'quizzes' / 'example.yaml')
     res = client.post('/api/sessions', json={'quiz_file': path, 'bonus_points': 5})
     assert res.status_code == 200
     data = res.json()
     assert 'session_id' in data
-    assert data['quiz_title'] == 'GPC_2026'
+    assert data['quiz_title'] == 'General Knowledge Quiz Night'
 
 
 def test_quiz_loader_fallback_over_escaped_quotes(tmp_path):
