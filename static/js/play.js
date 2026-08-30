@@ -10,6 +10,7 @@ let lastState = null;
 let selectedOptions = new Set();
 let orderItems = [];
 let orderSequence = [];
+let currentQuestionKey = null;
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
 
@@ -191,14 +192,25 @@ function renderRoundIntro(state) {
 
 // ── Question ───────────────────────────────────────────────────────────────────
 
+function hideAllQuestionInputs() {
+  document.getElementById('play-options').classList.add('hidden');
+  document.getElementById('play-select-many').classList.add('hidden');
+  document.getElementById('play-order').classList.add('hidden');
+  document.getElementById('play-numeric').classList.add('hidden');
+  document.getElementById('play-first-letter').classList.add('hidden');
+}
+
 function renderQuestion(state) {
   const q = state.question;
   if (!q) return;
 
-  // Reset state
-  selectedOptions.clear();
-  orderItems = [];
-  orderSequence = [];
+  // _broadcast_state fires on every answer submission, so this re-runs on
+  // all players each time another team submits. Only rebuild the input
+  // block on a genuinely new question (or a restart, which bumps
+  // timer_ends_at) — otherwise a partly-typed/selected answer gets wiped.
+  const key = `${state.round_index}:${state.question_index}:${state.timer_ends_at}`;
+  const isNewQuestion = key !== currentQuestionKey;
+  currentQuestionKey = key;
 
   // Check if already answered
   const alreadyAnswered = (state.answers || []).some(a => a.team_id === teamId);
@@ -220,17 +232,15 @@ function renderQuestion(state) {
     imgWrap.classList.add('hidden');
   }
 
-  // Hide all input sections
-  document.getElementById('play-options').classList.add('hidden');
-  document.getElementById('play-select-many').classList.add('hidden');
-  document.getElementById('play-order').classList.add('hidden');
-  document.getElementById('play-numeric').classList.add('hidden');
-  document.getElementById('play-first-letter').classList.add('hidden');
-  document.getElementById('play-submitted').classList.add('hidden');
-
   if (alreadyAnswered) {
+    hideAllQuestionInputs();
     document.getElementById('play-submitted').classList.remove('hidden');
-  } else {
+  } else if (isNewQuestion) {
+    selectedOptions.clear();
+    orderItems = [];
+    orderSequence = [];
+    hideAllQuestionInputs();
+    document.getElementById('play-submitted').classList.add('hidden');
     renderQuestionInput(q);
   }
 
@@ -267,9 +277,15 @@ function renderQuestionInput(q) {
     document.getElementById('play-order').classList.remove('hidden');
 
   } else if (q.type === 'numeric') {
-    document.getElementById('play-numeric-input').value = '';
+    const input = document.getElementById('play-numeric-input');
+    input.value = '';
+    document.getElementById('play-numeric-error').classList.add('hidden');
     document.getElementById('play-numeric').classList.remove('hidden');
-    document.getElementById('play-numeric-input').focus();
+    // Only focus on a fine pointer (mouse/trackpad) — on touch devices the
+    // keyboard animating open can swallow the first tap.
+    if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+      input.focus();
+    }
 
   } else if (q.type === 'first_letter') {
     const letters = q.letters || "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
@@ -382,9 +398,19 @@ function selectLetter(letter) {
 }
 
 document.getElementById('btn-submit-numeric').addEventListener('click', () => {
-  const val = document.getElementById('play-numeric-input').value.trim();
-  if (!val) return;
-  submitAnswer([val]);
+  const raw = document.getElementById('play-numeric-input').value.trim();
+  const errEl = document.getElementById('play-numeric-error');
+  if (!raw) return;
+
+  const normalized = raw.replace(/[^0-9.\-]/g, '');
+  if (normalized === '' || isNaN(Number(normalized))) {
+    errEl.textContent = 'Enter a valid number';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  errEl.classList.add('hidden');
+  submitAnswer([normalized]);
 });
 
 document.getElementById('play-numeric-input').addEventListener('keydown', e => {

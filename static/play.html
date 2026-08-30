@@ -108,7 +108,9 @@
 
     <!-- Numeric question -->
     <div id="play-numeric" class="play-numeric hidden">
-      <input type="number" id="play-numeric-input" class="numeric-input" placeholder="Your answer...">
+      <input type="number" id="play-numeric-input" class="numeric-input" placeholder="Your answer..."
+        inputmode="decimal" step="any" autocomplete="off">
+      <p id="play-numeric-error" class="numeric-error hidden"></p>
       <button class="btn btn-primary btn-submit" id="btn-submit-numeric">Submit</button>
     </div>
 
