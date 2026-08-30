@@ -76,8 +76,6 @@ quiz-meister/
 │       ├── play.js      # Player logic
 │       └── qrcode.min.js # QR code library
 ├── quizzes/
-│   └── example.yaml     # Sample quiz file
-├── quizzes/
 │   ├── example.yaml     # Sample quiz file
 │   └── images/          # Local quiz images
 ├── start.py             # Server entry point
