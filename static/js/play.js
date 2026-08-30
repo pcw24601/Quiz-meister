@@ -454,17 +454,27 @@ function renderReveal(state) {
   const myAnswer = (state.answers || []).find(a => a.team_id === teamId);
   const yourEl = document.getElementById('reveal-your-answer');
   const scoreEl = document.getElementById('reveal-score-change');
+  const resultEl = document.getElementById('reveal-result');
+  const screenEl = document.getElementById('screen-reveal');
+
+  const gotIt = !!myAnswer && myAnswer.score > 0;
+  screenEl.classList.remove('correct', 'wrong');
 
   if (myAnswer) {
+    screenEl.classList.add(gotIt ? 'correct' : 'wrong');
+    resultEl.textContent = gotIt ? '✓ Correct!' : '✗ Not this time';
+    resultEl.className = 'reveal-result ' + (gotIt ? 'correct' : 'wrong');
+
     yourEl.textContent = `Your answer: ${formatMyAnswer(myAnswer.answer_data, q)}`;
-    if (myAnswer.score > 0) {
-      scoreEl.textContent = `+${myAnswer.score} point${myAnswer.score !== 1 ? 's' : ''}`;
-      scoreEl.style.color = 'var(--success-600)';
-      scoreEl.classList.remove('hidden');
-    } else {
-      scoreEl.classList.add('hidden');
-    }
+    scoreEl.textContent = myAnswer.score > 0
+      ? `+${myAnswer.score} point${myAnswer.score !== 1 ? 's' : ''}`
+      : '0 points';
+    scoreEl.classList.toggle('positive', myAnswer.score > 0);
+    scoreEl.classList.remove('hidden');
   } else {
+    resultEl.textContent = "You didn't answer";
+    resultEl.className = 'reveal-result';
+
     yourEl.textContent = 'You did not answer';
     scoreEl.classList.add('hidden');
   }

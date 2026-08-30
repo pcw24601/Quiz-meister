@@ -444,7 +444,11 @@
   min-height: 100dvh;
   padding: var(--space-6);
   background: var(--neutral-50);
+  transition: background var(--transition-fast);
 }
+
+#screen-reveal.active.correct { background: var(--secondary-50); }
+#screen-reveal.active.wrong { background: rgba(239, 68, 68, 0.08); }
 
 .reveal-container {
   width: 100%;
@@ -467,14 +471,23 @@
   line-height: 1.5;
 }
 
+.reveal-result {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--neutral-600);
+}
+
+.reveal-result.correct { color: var(--success-600); }
+.reveal-result.wrong { color: var(--error-600); }
+
 .reveal-answer-player {
   padding: var(--space-4) var(--space-5);
-  background: var(--secondary-50);
-  border: 2px solid var(--secondary-400);
+  background: var(--primary-50);
+  border: 2px solid var(--primary-200);
   border-radius: var(--radius-lg);
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--success-600);
+  color: var(--primary-700);
 }
 
 .reveal-info {
@@ -496,8 +509,12 @@
 .score-change {
   font-size: 1.5rem;
   font-weight: 900;
-  color: var(--primary-600);
+  color: var(--neutral-500);
   animation: pop-in 0.3s ease;
+}
+
+.score-change.positive {
+  color: var(--success-600);
 }
 
 /* ── Leaderboard Screen ──────────────────────────────────────────────────────*/
