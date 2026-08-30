@@ -4,7 +4,8 @@ let sessionId = null;
 let ws = null;
 let timerInterval = null;
 let lastTimerDuration = 30;
-let qrRendered = false;
+let joinUrlPromise = null;
+const qrRenderedContainers = new Set();
 let leaderboardRevealTimer = null;
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
@@ -42,7 +43,20 @@ document.getElementById('btn-connect-display').addEventListener('click', () => {
 
 function enterDisplay() {
   showScreen('screen-display');
+  initJoinUrl();
   connectWS();
+}
+
+// ── Join URL ────────────────────────────────────────────────────────────────
+
+function initJoinUrl() {
+  if (!joinUrlPromise) {
+    joinUrlPromise = fetch('/api/config')
+      .then(r => r.json())
+      .then(cfg => `${cfg.player_url}?session=${sessionId}`)
+      .catch(() => `${location.protocol}//${location.host}/play?session=${sessionId}`);
+  }
+  return joinUrlPromise;
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -84,21 +98,15 @@ function handleState(state) {
 // ── Lobby ──────────────────────────────────────────────────────────────────────
 
 function renderJoinQR(container, size) {
-  fetch('/api/config').then(r => r.json()).then(cfg => {
-    const joinUrl = `${cfg.player_url}?session=${sessionId}`;
+  if (!container || qrRenderedContainers.has(container.id)) return;
+  qrRenderedContainers.add(container.id);
+  initJoinUrl().then(joinUrl => {
     new QRCode(container, {
       text: joinUrl,
       width: size,
       height: size,
       colorDark: '#0f172a',
       colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M,
-    });
-  }).catch(() => {
-    const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
-    new QRCode(container, {
-      text: joinUrl, width: size, height: size,
-      colorDark: '#0f172a', colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M,
     });
   });
@@ -109,11 +117,7 @@ function renderLobby(state) {
   document.getElementById('display-quiz-title-lobby').textContent = state.quiz_title;
   document.getElementById('display-session-code').textContent = sessionId;
 
-  // QR code (only render once)
-  if (!qrRendered) {
-    renderJoinQR(document.getElementById('display-qr'), 420);
-    qrRendered = true;
-  }
+  renderJoinQR(document.getElementById('display-qr'), 420);
 
   // Team grid
   const grid = document.getElementById('display-team-grid');
@@ -153,6 +157,8 @@ function renderRoundIntro(state) {
   } else {
     imgWrap.classList.add('hidden');
   }
+
+  renderJoinQR(document.getElementById('display-corner-qr-round-intro'), 120);
 }
 
 // ── Question ───────────────────────────────────────────────────────────────────
@@ -220,6 +226,8 @@ function renderQuestion(state) {
 
   // Answer progress bar
   updateAnswerBar(state.answered_count, state.total_teams);
+
+  renderJoinQR(document.getElementById('display-corner-qr-question'), 120);
 }
 
 function startTimerDisplay(timerEndsAt, duration) {
