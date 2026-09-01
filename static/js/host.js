@@ -233,7 +233,7 @@ function handleState(state) {
   document.getElementById('state-label').textContent = stateLabel(state.state);
 
   // Team list (sidebar)
-  renderTeamList(state.teams, state.answers);
+  renderTeamList(state.teams, state.leaderboard);
 
   switch(state.state) {
     case 'lobby':       renderLobby(state); break;
@@ -250,11 +250,27 @@ function stateLabel(s) {
            leaderboard:'Leaderboard', ended:'Quiz Ended' }[s] || s;
 }
 
-function renderTeamList(teams, answers) {
+function renderTeamList(teams, leaderboard) {
   const list = document.getElementById('team-list');
-  list.innerHTML = teams.map(t => `
+  if (!teams || teams.length === 0) {
+    list.innerHTML = '';
+    return;
+  }
+
+  // Create lookup for scores from leaderboard
+  const scoreMap = new Map((leaderboard || []).map(entry => [entry.team_id, entry.total_score]));
+
+  // Build items with score, sorted by score descending (with secondary tie-break on name)
+  const sortedTeams = teams.map(t => ({
+    id: t.id,
+    name: t.name,
+    score: scoreMap.has(t.id) ? scoreMap.get(t.id) : (t.score || 0)
+  })).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  list.innerHTML = sortedTeams.map(t => `
     <div class="team-item">
       <span>${escHtml(t.name)}</span>
+      <span class="team-score">${t.score} pts</span>
     </div>
   `).join('');
 }
