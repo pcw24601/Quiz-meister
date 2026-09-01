@@ -1164,6 +1164,7 @@ async function handleImageUpload(qIdx, file) {
     const formData = new FormData();
     formData.append('file', compressed, file.name.replace(/\.[^.]+$/, '.jpg'));
     formData.append('quiz_file', currentQuizPath);
+    formData.append('original_filename', file.name);   // preserve original name on server
 
     const res = await fetch('/api/quizzes/upload-image', { method: 'POST', body: formData });
     const data = await res.json();
@@ -1197,6 +1198,7 @@ async function handleRoundImageUpload(file) {
     const formData = new FormData();
     formData.append('file', compressed, file.name.replace(/\.[^.]+$/, '.jpg'));
     formData.append('quiz_file', currentQuizPath);
+    formData.append('original_filename', file.name);   // preserve original name on server
 
     const res = await fetch('/api/quizzes/upload-image', { method: 'POST', body: formData });
     const data = await res.json();
@@ -1286,6 +1288,24 @@ document.getElementById('btn-save-yaml').addEventListener('click', async () => {
   const yaml = generateYAML();
   const filename = currentFilename || (quiz.title || 'quiz').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.yaml';
 
+  // Helper: mirror content to server so currentQuizPath is set and upload is enabled.
+  async function mirrorToServer(content, fname) {
+    if (currentQuizPath) return;   // already on server
+    try {
+      const res = await fetch('/api/quizzes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: fname, content })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        currentFilename = data.filename;
+        currentQuizPath = data.path;
+        renderRoundEditor();   // refresh to enable upload buttons
+      }
+    } catch (_) {}
+  }
+
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -1298,6 +1318,7 @@ document.getElementById('btn-save-yaml').addEventListener('click', async () => {
       const writable = await handle.createWritable();
       await writable.write(yaml);
       await writable.close();
+      await mirrorToServer(yaml, handle.name || filename);
       showToast('Quiz saved!');
       return;
     } catch (e) {
@@ -1306,6 +1327,7 @@ document.getElementById('btn-save-yaml').addEventListener('click', async () => {
   }
 
   downloadYAML(yaml, filename);
+  await mirrorToServer(yaml, filename);
 });
 
 function downloadYAML(yaml, filename) {
@@ -1345,7 +1367,26 @@ document.getElementById('btn-open').addEventListener('click', () => {
     activeRoundIndex = 0;
     renderSidebar();
     renderRoundEditor();
-    showToast(`Opened ${file.name}. Save to server to enable image upload.`);
+
+    // Auto-save to server so currentQuizPath is set and upload is enabled.
+    try {
+      const saveRes = await fetch('/api/quizzes/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, content: text })
+      });
+      const saveData = await saveRes.json();
+      if (saveData.ok) {
+        currentFilename = saveData.filename;
+        currentQuizPath = saveData.path;
+        renderRoundEditor();   // refresh to enable upload buttons
+        showToast(`Opened ${file.name} — image upload enabled.`);
+      } else {
+        showToast(`Opened ${file.name}. Save to server to enable image upload.`);
+      }
+    } catch (_) {
+      showToast(`Opened ${file.name}. Save to server to enable image upload.`);
+    }
   };
   input.click();
 });

@@ -21,7 +21,6 @@ import asyncio
 import json
 import os
 import secrets
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -437,10 +436,36 @@ async def save_quiz(req: SaveQuizRequest):
         raise HTTPException(500, f"Failed to save: {e}")
 
 
+def _unique_image_name(images_dir: Path, stem: str, suffix: str) -> str:
+    """Return a non-colliding filename inside *images_dir*.
+
+    Tries ``<stem><suffix>`` first, then ``<stem>_1<suffix>``,
+    ``<stem>_2<suffix>``, … until a free slot is found.
+    """
+    candidate = f"{stem}{suffix}"
+    if not (images_dir / candidate).exists():
+        return candidate
+    n = 1
+    while (images_dir / f"{stem}_{n}{suffix}").exists():
+        n += 1
+    return f"{stem}_{n}{suffix}"
+
+
 @app.post("/api/quizzes/upload-image")
-async def upload_image(file: UploadFile = File(...), quiz_file: str | None = Form(None)):
+async def upload_image(
+    file: UploadFile = File(...),
+    quiz_file: str | None = Form(None),
+    original_filename: str | None = Form(None),
+):
     """Accept an image upload and save it to an images/ folder relative to the quiz YAML file.
     Returns the relative path for use in quiz YAML files.
+
+    *original_filename* – the browser's original filename before any re-encoding
+    (e.g. ``photo.png``).  When omitted the uploaded file's own name is used.
+    A ``_resized`` marker is appended to the stem when the browser converted the
+    image from a non-JPEG source format to JPEG.  If a file with the chosen name
+    already exists, a numeric suffix (``_1``, ``_2``, …) is appended instead of
+    overwriting.
     """
     if not quiz_file or not quiz_file.strip():
         raise HTTPException(400, "quiz_file is required. Please save the quiz before uploading images.")
@@ -451,14 +476,25 @@ async def upload_image(file: UploadFile = File(...), quiz_file: str | None = For
     else:
         quiz_path = (QUIZZES_DIR / provided).resolve()
 
-    original_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
-    suffix = Path(original_name).suffix.lower() or ".jpg"
-    if suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
+    # Determine the effective suffix from the uploaded file (always .jpg after
+    # browser compression, but validated against the allow-list regardless).
+    upload_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
+    upload_suffix = Path(upload_name).suffix.lower() or ".jpg"
+    if upload_suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
         raise HTTPException(400, "Unsupported image type. Use jpg, png, gif, webp, or svg.")
 
-    unique_name = f"{uuid.uuid4().hex}{suffix}"
+    # Build the destination stem from the original filename when supplied.
+    raw_orig = (original_filename or upload_name).replace("..", "").replace("/", "").replace("\\", "")
+    orig_suffix = Path(raw_orig).suffix.lower() or upload_suffix
+    orig_stem = Path(raw_orig).stem[:60].strip("._- ") or "image"
+
+    # If the browser converted the format (e.g. PNG → JPG), add '_resized'.
+    was_converted = orig_suffix not in (".jpg", ".jpeg") and upload_suffix in (".jpg", ".jpeg")
+    dest_stem = f"{orig_stem}_resized" if was_converted else orig_stem
+
     images_dir = quiz_path.parent / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
+    unique_name = _unique_image_name(images_dir, dest_stem, upload_suffix)
     dest = images_dir / unique_name
     try:
         content = await file.read()

@@ -168,6 +168,47 @@ def test_upload_image_invalid_extension(tmp_path):
     assert 'Unsupported image type' in res.json()['detail']
 
 
+def test_upload_image_preserves_original_filename(tmp_path):
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    files = {'file': ('my_photo.jpg', b'img-bytes', 'image/jpeg')}
+    data = {'quiz_file': str(quiz_file), 'original_filename': 'my_photo.jpg'}
+    res = client.post('/api/quizzes/upload-image', files=files, data=data)
+    assert res.status_code == 200
+    assert res.json()['path'] == 'images/my_photo.jpg'
+
+
+def test_upload_image_disambiguation(tmp_path):
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    # First upload
+    f1 = {'file': ('photo.jpg', b'v1', 'image/jpeg')}
+    d1 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r1 = client.post('/api/quizzes/upload-image', files=f1, data=d1)
+    assert r1.json()['path'] == 'images/photo.jpg'
+    # Duplicate upload
+    f2 = {'file': ('photo.jpg', b'v2', 'image/jpeg')}
+    d2 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r2 = client.post('/api/quizzes/upload-image', files=f2, data=d2)
+    assert r2.json()['path'] == 'images/photo_1.jpg'
+    # Third upload
+    f3 = {'file': ('photo.jpg', b'v3', 'image/jpeg')}
+    d3 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r3 = client.post('/api/quizzes/upload-image', files=f3, data=d3)
+    assert r3.json()['path'] == 'images/photo_2.jpg'
+
+
+def test_upload_image_resized_suffix(tmp_path):
+    """PNG converted to JPEG by the browser should get a _resized suffix."""
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    files = {'file': ('logo.jpg', b'img-bytes', 'image/jpeg')}
+    data = {'quiz_file': str(quiz_file), 'original_filename': 'logo.png'}
+    res = client.post('/api/quizzes/upload-image', files=files, data=data)
+    assert res.status_code == 200
+    assert res.json()['path'] == 'images/logo_resized.jpg'
+
+
 def test_resolve_session_image_url():
     from app import _resolve_session_image_url
     # None and empty
