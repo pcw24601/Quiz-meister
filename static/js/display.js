@@ -7,9 +7,19 @@ let lastTimerDuration = 30;
 let joinUrlPromise = null;
 const qrRenderedContainers = new Set();
 let leaderboardRevealTimer = null;
+let currentDisplayQuestionKey = null;
+let displayOrderItems = [];
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
 const COLORS = ['#3b82f6','#ef4444','#22c55e','#f97316','#8b5cf6','#06b6d4','#ec4899','#eab308'];
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 // ── URL params ─────────────────────────────────────────────────────────────
 
@@ -195,9 +205,13 @@ function renderQuestion(state) {
     `).join('');
     optEl.style.display = 'grid';
   } else if (q.type === 'order') {
-    optEl.innerHTML = (q.items || []).map((item, i) => `
+    const key = `${state.round_index}:${state.question_index}:${state.timer_ends_at}`;
+    if (key !== currentDisplayQuestionKey) {
+      currentDisplayQuestionKey = key;
+      displayOrderItems = shuffleArray([...(q.items || [])]);
+    }
+    optEl.innerHTML = (displayOrderItems || []).map((item) => `
       <div class="display-option">
-        <div class="display-option-letter">${i+1}</div>
         <span>${escHtml(item)}</span>
       </div>
     `).join('');
