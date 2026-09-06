@@ -9,7 +9,8 @@ let timerInterval = null;
 let lastState = null;
 let selectedOptions = new Set();
 let orderItems = [];
-let dragSrcEl = null;
+let orderSequence = [];
+let currentQuestionKey = null;
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
 
@@ -191,13 +192,25 @@ function renderRoundIntro(state) {
 
 // ── Question ───────────────────────────────────────────────────────────────────
 
+function hideAllQuestionInputs() {
+  document.getElementById('play-options').classList.add('hidden');
+  document.getElementById('play-select-many').classList.add('hidden');
+  document.getElementById('play-order').classList.add('hidden');
+  document.getElementById('play-numeric').classList.add('hidden');
+  document.getElementById('play-first-letter').classList.add('hidden');
+}
+
 function renderQuestion(state) {
   const q = state.question;
   if (!q) return;
 
-  // Reset state
-  selectedOptions.clear();
-  orderItems = [];
+  // _broadcast_state fires on every answer submission, so this re-runs on
+  // all players each time another team submits. Only rebuild the input
+  // block on a genuinely new question (or a restart, which bumps
+  // timer_ends_at) — otherwise a partly-typed/selected answer gets wiped.
+  const key = `${state.round_index}:${state.question_index}:${state.timer_ends_at}`;
+  const isNewQuestion = key !== currentQuestionKey;
+  currentQuestionKey = key;
 
   // Check if already answered
   const alreadyAnswered = (state.answers || []).some(a => a.team_id === teamId);
@@ -219,17 +232,15 @@ function renderQuestion(state) {
     imgWrap.classList.add('hidden');
   }
 
-  // Hide all input sections
-  document.getElementById('play-options').classList.add('hidden');
-  document.getElementById('play-select-many').classList.add('hidden');
-  document.getElementById('play-order').classList.add('hidden');
-  document.getElementById('play-numeric').classList.add('hidden');
-  document.getElementById('play-first-letter').classList.add('hidden');
-  document.getElementById('play-submitted').classList.add('hidden');
-
   if (alreadyAnswered) {
+    hideAllQuestionInputs();
     document.getElementById('play-submitted').classList.remove('hidden');
-  } else {
+  } else if (isNewQuestion) {
+    selectedOptions.clear();
+    orderItems = [];
+    orderSequence = [];
+    hideAllQuestionInputs();
+    document.getElementById('play-submitted').classList.add('hidden');
     renderQuestionInput(q);
   }
 
@@ -266,9 +277,15 @@ function renderQuestionInput(q) {
     document.getElementById('play-order').classList.remove('hidden');
 
   } else if (q.type === 'numeric') {
-    document.getElementById('play-numeric-input').value = '';
+    const input = document.getElementById('play-numeric-input');
+    input.value = '';
+    document.getElementById('play-numeric-error').classList.add('hidden');
     document.getElementById('play-numeric').classList.remove('hidden');
-    document.getElementById('play-numeric-input').focus();
+    // Only focus on a fine pointer (mouse/trackpad) — on touch devices the
+    // keyboard animating open can swallow the first tap.
+    if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+      input.focus();
+    }
 
   } else if (q.type === 'first_letter') {
     const letters = q.letters || "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
@@ -317,108 +334,59 @@ document.getElementById('btn-submit-many').addEventListener('click', () => {
   submitAnswer([...selectedOptions]);
 });
 
-// ── Order drag-and-drop ────────────────────────────────────────────────────────
+// ── Order: tap-to-sequence ──────────────────────────────────────────────────
 
 function renderOrderList() {
   const list = document.getElementById('play-order-list');
-  const n = orderItems.length;
   list.innerHTML = orderItems.map((item, i) => `
-    <div class="order-item" draggable="true" data-pos="${i}">
-      <span class="drag-handle">&#8801;</span>
+    <button class="order-item" type="button" data-pos="${i}">
+      <span class="order-seq"></span>
       <span class="order-item-text">${escHtml(item.text)}</span>
-      <div class="order-buttons">
-        <button class="order-btn order-btn-up" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
-        <button class="order-btn order-btn-down" data-dir="1" ${i === n-1 ? 'disabled' : ''} aria-label="Move down">▼</button>
-      </div>
-    </div>
+    </button>
   `).join('');
 
-  list.querySelectorAll('.order-item').forEach(item => {
-    item.addEventListener('dragstart', dragStart);
-    item.addEventListener('dragover', dragOver);
-    item.addEventListener('drop', dragDrop);
-    item.addEventListener('dragend', dragEnd);
-    // Touch support
-    item.addEventListener('touchstart', touchStart, {passive:true});
-    item.addEventListener('touchmove', touchMove, {passive:false});
-    item.addEventListener('touchend', touchEnd);
+  list.querySelectorAll('.order-item').forEach(el => {
+    el.addEventListener('click', () => toggleOrderPosition(parseInt(el.dataset.pos)));
   });
 
-  // Up/down buttons for mobile
-  list.querySelectorAll('.order-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const item = btn.closest('.order-item');
-      const pos = parseInt(item.dataset.pos);
-      const dir = parseInt(btn.dataset.dir);
-      const newPos = pos + dir;
-      if (newPos >= 0 && newPos < orderItems.length) {
-        const tmp = orderItems[pos];
-        orderItems[pos] = orderItems[newPos];
-        orderItems[newPos] = tmp;
-        renderOrderList();
-      }
-    });
-  });
+  updateOrderList();
 }
 
-function dragStart(e) {
-  dragSrcEl = this;
-  this.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function dragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  return false;
-}
-
-function dragDrop(e) {
-  e.stopPropagation();
-  if (dragSrcEl !== this) {
-    const srcPos = parseInt(dragSrcEl.dataset.pos);
-    const dstPos = parseInt(this.dataset.pos);
-    const tmp = orderItems[srcPos];
-    orderItems[srcPos] = orderItems[dstPos];
-    orderItems[dstPos] = tmp;
-    renderOrderList();
+function toggleOrderPosition(pos) {
+  const idx = orderSequence.indexOf(pos);
+  if (idx !== -1) {
+    orderSequence.splice(idx, 1);
+  } else {
+    orderSequence.push(pos);
   }
-  return false;
+  updateOrderList();
+
+  if (orderSequence.length === orderItems.length) {
+    submitAnswer(orderSequence.map(p => orderItems[p].originalIndex));
+  }
 }
 
-function dragEnd() {
-  this.classList.remove('dragging');
-}
-
-// Touch drag
-let touchDragEl = null, touchStartY = 0;
-function touchStart(e) {
-  touchDragEl = this;
-  touchStartY = e.touches[0].clientY;
-}
-function touchMove(e) {
-  e.preventDefault();
-  if (!touchDragEl) return;
-  const y = e.touches[0].clientY;
+function updateOrderList() {
   const list = document.getElementById('play-order-list');
-  const items = list.querySelectorAll('.order-item');
-  items.forEach(item => {
-    const rect = item.getBoundingClientRect();
-    if (y >= rect.top && y <= rect.bottom && item !== touchDragEl) {
-      const srcPos = parseInt(touchDragEl.dataset.pos);
-      const dstPos = parseInt(item.dataset.pos);
-      const tmp = orderItems[srcPos];
-      orderItems[srcPos] = orderItems[dstPos];
-      orderItems[dstPos] = tmp;
-      renderOrderList();
+  list.querySelectorAll('.order-item').forEach(el => {
+    const pos = parseInt(el.dataset.pos);
+    const seq = orderSequence.indexOf(pos);
+    const badge = el.querySelector('.order-seq');
+    if (seq !== -1) {
+      badge.textContent = seq + 1;
+      el.classList.add('selected');
+    } else {
+      badge.textContent = '';
+      el.classList.remove('selected');
     }
   });
-}
-function touchEnd() { touchDragEl = null; }
 
-document.getElementById('btn-submit-order').addEventListener('click', () => {
-  submitAnswer(orderItems.map(item => item.originalIndex));
+  document.getElementById('btn-clear-order').disabled = orderSequence.length === 0;
+}
+
+document.getElementById('btn-clear-order').addEventListener('click', () => {
+  orderSequence = [];
+  updateOrderList();
 });
 
 // ── Numeric submit ─────────────────────────────────────────────────────────────
@@ -430,9 +398,19 @@ function selectLetter(letter) {
 }
 
 document.getElementById('btn-submit-numeric').addEventListener('click', () => {
-  const val = document.getElementById('play-numeric-input').value.trim();
-  if (!val) return;
-  submitAnswer([val]);
+  const raw = document.getElementById('play-numeric-input').value.trim();
+  const errEl = document.getElementById('play-numeric-error');
+  if (!raw) return;
+
+  const normalized = raw.replace(/[^0-9.\-]/g, '');
+  if (normalized === '' || isNaN(Number(normalized))) {
+    errEl.textContent = 'Enter a valid number';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  errEl.classList.add('hidden');
+  submitAnswer([normalized]);
 });
 
 document.getElementById('play-numeric-input').addEventListener('keydown', e => {
@@ -502,17 +480,27 @@ function renderReveal(state) {
   const myAnswer = (state.answers || []).find(a => a.team_id === teamId);
   const yourEl = document.getElementById('reveal-your-answer');
   const scoreEl = document.getElementById('reveal-score-change');
+  const resultEl = document.getElementById('reveal-result');
+  const screenEl = document.getElementById('screen-reveal');
+
+  const gotIt = !!myAnswer && myAnswer.score > 0;
+  screenEl.classList.remove('correct', 'wrong');
 
   if (myAnswer) {
+    screenEl.classList.add(gotIt ? 'correct' : 'wrong');
+    resultEl.textContent = gotIt ? '✓ Correct!' : '✗ Not this time';
+    resultEl.className = 'reveal-result ' + (gotIt ? 'correct' : 'wrong');
+
     yourEl.textContent = `Your answer: ${formatMyAnswer(myAnswer.answer_data, q)}`;
-    if (myAnswer.score > 0) {
-      scoreEl.textContent = `+${myAnswer.score} point${myAnswer.score !== 1 ? 's' : ''}`;
-      scoreEl.style.color = 'var(--success-600)';
-      scoreEl.classList.remove('hidden');
-    } else {
-      scoreEl.classList.add('hidden');
-    }
+    scoreEl.textContent = myAnswer.score > 0
+      ? `+${myAnswer.score} point${myAnswer.score !== 1 ? 's' : ''}`
+      : '0 points';
+    scoreEl.classList.toggle('positive', myAnswer.score > 0);
+    scoreEl.classList.remove('hidden');
   } else {
+    resultEl.textContent = "You didn't answer";
+    resultEl.className = 'reveal-result';
+
     yourEl.textContent = 'You did not answer';
     scoreEl.classList.add('hidden');
   }

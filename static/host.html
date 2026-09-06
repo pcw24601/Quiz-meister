@@ -40,7 +40,7 @@
       <div class="divider">or resume</div>
       <div class="form-group">
         <label for="resume-session-id">Session ID</label>
-        <input type="text" id="resume-session-id" placeholder="Paste session ID...">
+        <input type="text" id="resume-session-id" placeholder="Paste session ID..." inputmode="numeric" pattern="[0-9]*" maxlength="5">
       </div>
       <div class="form-group">
         <label for="resume-secret">Host Secret</label>
@@ -187,6 +187,8 @@
           </table>
         </div>
 
+        <div id="host-next-preview" class="next-preview"></div>
+
         <div class="control-buttons">
           <button class="btn btn-primary" id="btn-next-question">Next Question</button>
           <button class="btn btn-danger" id="btn-restart-question">Restart Question</button>
@@ -200,7 +202,7 @@
         <div id="host-leaderboard" class="leaderboard-list"></div>
         <div class="control-buttons">
           <button class="btn btn-secondary" id="btn-back-to-reveal">Back to Question</button>
-          <button class="btn btn-primary" id="btn-next-round">Continue</button>
+          <button class="btn btn-primary" id="btn-next-round">Next Round</button>
         </div>
       </div>
 

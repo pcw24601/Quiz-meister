@@ -21,9 +21,8 @@ import asyncio
 import json
 import os
 import secrets
-import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -166,6 +165,19 @@ def cancel_timer(session_id: str):
         del _timer_tasks[session_id]
 
 
+def _begin_question(session_id: str, ri: int, qi: int, question: dict):
+    """Put the session into 'question' state for (ri, qi) with a fresh timer."""
+    duration = question.get("time", 30)
+    ends = datetime.now(timezone.utc) + timedelta(seconds=duration)
+    db.update_session(session_id, {
+        "state": "question",
+        "current_round_index": ri,
+        "current_question_index": qi,
+        "timer_ends_at": ends.isoformat(),
+    })
+    start_timer(session_id, duration)
+
+
 # ── State broadcast helper ────────────────────────────────────────────────────
 
 def _resolve_session_image_url(session_id: str, img_ref: str | None) -> str | None:
@@ -178,6 +190,47 @@ def _resolve_session_image_url(session_id: str, img_ref: str | None) -> str | No
         return ref
     clean_path = ref.lstrip("/")
     return f"/api/sessions/{session_id}/image?path={clean_path}"
+
+
+def _compute_next_question(rounds: list, ri: int, qi: int) -> dict:
+    """Peek at what comes after the current question, for the host 'coming up' preview."""
+    current_round = rounds[ri] if ri < len(rounds) else None
+    total_qs = len(current_round["questions"]) if current_round else 0
+
+    if current_round and qi + 1 < total_qs:
+        return {
+            "next_question": dict(current_round["questions"][qi + 1]),
+            "next_question_index": qi + 1,
+            "next_round_index": ri,
+            "next_round_name": current_round["name"],
+            "next_round_instructions": current_round.get("instructions"),
+            "next_is_new_round": False,
+            "next_is_end": False,
+        }
+
+    next_ri = ri + 1
+    if next_ri < len(rounds):
+        next_round = rounds[next_ri]
+        next_qs = next_round.get("questions", [])
+        return {
+            "next_question": dict(next_qs[0]) if next_qs else None,
+            "next_question_index": 0,
+            "next_round_index": next_ri,
+            "next_round_name": next_round["name"],
+            "next_round_instructions": next_round.get("instructions"),
+            "next_is_new_round": True,
+            "next_is_end": False,
+        }
+
+    return {
+        "next_question": None,
+        "next_question_index": None,
+        "next_round_index": None,
+        "next_round_name": None,
+        "next_round_instructions": None,
+        "next_is_new_round": False,
+        "next_is_end": True,
+    }
 
 
 async def _broadcast_state(session_id: str, session: dict):
@@ -215,6 +268,12 @@ async def _broadcast_state(session_id: str, session: dict):
 
     answered_team_ids = {a["team_id"] for a in answers_for_q}
 
+    next_info = _compute_next_question(rounds, ri, qi)
+    if next_info["next_question"] and next_info["next_question"].get("image"):
+        next_info["next_question"]["image"] = _resolve_session_image_url(
+            session_id, next_info["next_question"]["image"]
+        )
+
     payload = {
         "type": "state",
         "session_id": session_id,
@@ -235,6 +294,7 @@ async def _broadcast_state(session_id: str, session: dict):
         "answered_count": len(answered_team_ids),
         "total_teams": len(teams),
         "answers": answers_for_q,
+        **next_info,
     }
     await manager.broadcast(session_id, payload)
 
@@ -376,10 +436,36 @@ async def save_quiz(req: SaveQuizRequest):
         raise HTTPException(500, f"Failed to save: {e}")
 
 
+def _unique_image_name(images_dir: Path, stem: str, suffix: str) -> str:
+    """Return a non-colliding filename inside *images_dir*.
+
+    Tries ``<stem><suffix>`` first, then ``<stem>_1<suffix>``,
+    ``<stem>_2<suffix>``, … until a free slot is found.
+    """
+    candidate = f"{stem}{suffix}"
+    if not (images_dir / candidate).exists():
+        return candidate
+    n = 1
+    while (images_dir / f"{stem}_{n}{suffix}").exists():
+        n += 1
+    return f"{stem}_{n}{suffix}"
+
+
 @app.post("/api/quizzes/upload-image")
-async def upload_image(file: UploadFile = File(...), quiz_file: str | None = Form(None)):
+async def upload_image(
+    file: UploadFile = File(...),
+    quiz_file: str | None = Form(None),
+    original_filename: str | None = Form(None),
+):
     """Accept an image upload and save it to an images/ folder relative to the quiz YAML file.
     Returns the relative path for use in quiz YAML files.
+
+    *original_filename* – the browser's original filename before any re-encoding
+    (e.g. ``photo.png``).  When omitted the uploaded file's own name is used.
+    A ``_resized`` marker is appended to the stem when the browser converted the
+    image from a non-JPEG source format to JPEG.  If a file with the chosen name
+    already exists, a numeric suffix (``_1``, ``_2``, …) is appended instead of
+    overwriting.
     """
     if not quiz_file or not quiz_file.strip():
         raise HTTPException(400, "quiz_file is required. Please save the quiz before uploading images.")
@@ -390,14 +476,25 @@ async def upload_image(file: UploadFile = File(...), quiz_file: str | None = For
     else:
         quiz_path = (QUIZZES_DIR / provided).resolve()
 
-    original_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
-    suffix = Path(original_name).suffix.lower() or ".jpg"
-    if suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
+    # Determine the effective suffix from the uploaded file (always .jpg after
+    # browser compression, but validated against the allow-list regardless).
+    upload_name = (file.filename or "image").replace("..", "").replace("/", "").replace("\\", "")
+    upload_suffix = Path(upload_name).suffix.lower() or ".jpg"
+    if upload_suffix not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
         raise HTTPException(400, "Unsupported image type. Use jpg, png, gif, webp, or svg.")
 
-    unique_name = f"{uuid.uuid4().hex}{suffix}"
+    # Build the destination stem from the original filename when supplied.
+    raw_orig = (original_filename or upload_name).replace("..", "").replace("/", "").replace("\\", "")
+    orig_suffix = Path(raw_orig).suffix.lower() or upload_suffix
+    orig_stem = Path(raw_orig).stem[:60].strip("._- ") or "image"
+
+    # If the browser converted the format (e.g. PNG → JPG), add '_resized'.
+    was_converted = orig_suffix not in (".jpg", ".jpeg") and upload_suffix in (".jpg", ".jpeg")
+    dest_stem = f"{orig_stem}_resized" if was_converted else orig_stem
+
     images_dir = quiz_path.parent / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
+    unique_name = _unique_image_name(images_dir, dest_stem, upload_suffix)
     dest = images_dir / unique_name
     try:
         content = await file.read()
@@ -520,7 +617,9 @@ async def get_session(session_id: str):
     session = db.get_session(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
-    return session
+    # Unauthenticated endpoint — don't leak the host secret or the full quiz
+    # (with answers) to anyone who can guess/enumerate a session ID.
+    return {k: v for k, v in session.items() if k not in ("host_secret", "quiz_data")}
 
 
 class JoinRequest(BaseModel):
@@ -640,22 +739,8 @@ async def session_action(session_id: str, req: ActionRequest):
             raise HTTPException(400, "No more rounds")
 
         question = current_round["questions"][qi]
-        duration = question.get("time", 30)
-
-        timer_ends_at = datetime.now(timezone.utc)
-        # We'll store ISO string
-        from datetime import timedelta
-        ends = datetime.now(timezone.utc) + timedelta(seconds=duration)
-        ends_str = ends.isoformat()
-
-        db.update_session(session_id, {
-            "state": "question",
-            "current_round_index": ri,
-            "current_question_index": qi,
-            "timer_ends_at": ends_str,
-        })
+        _begin_question(session_id, ri, qi, question)
         session = db.get_session(session_id)
-        start_timer(session_id, duration)
         await _broadcast_state(session_id, session)
         return {"state": "question"}
 
@@ -699,12 +784,20 @@ async def session_action(session_id: str, req: ActionRequest):
         return {"state": "answer_reveal"}
 
     elif action == "restart_question":
-        # Clear all answers for current question and go back to lobby
+        if session["state"] not in ("question", "answer_reveal"):
+            raise HTTPException(400, f"Cannot restart question from state: {session['state']}")
+
+        current_round = rounds[ri] if ri < len(rounds) else None
+        if not current_round:
+            raise HTTPException(400, "No more rounds")
+
+        cancel_timer(session_id)
         db.clear_answers(session_id, ri, qi)
-        db.update_session(session_id, {"state": "lobby"})
+        question = current_round["questions"][qi]
+        _begin_question(session_id, ri, qi, question)
         session = db.get_session(session_id)
         await _broadcast_state(session_id, session)
-        return {"state": "lobby"}
+        return {"state": "question"}
 
     elif action == "next_round":
         if ri + 1 >= len(rounds):

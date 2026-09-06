@@ -18,7 +18,7 @@
     </div>
     <div class="connect-form card">
       <label for="display-session-id">Session ID</label>
-      <input type="text" id="display-session-id" placeholder="Enter session ID...">
+      <input type="text" id="display-session-id" placeholder="Enter session ID..." inputmode="numeric" pattern="[0-9]*" maxlength="5">
       <button class="btn btn-primary btn-lg" id="btn-connect-display">Connect</button>
     </div>
   </div>
@@ -36,10 +36,8 @@
       </div>
       <div class="join-info">
         <div id="display-qr" class="display-qr"></div>
-        <div class="join-text">
-          <div class="scan-label">Scan to join</div>
-          <div id="display-join-url" class="display-join-url"></div>
-        </div>
+        <div class="scan-label">Scan to join</div>
+        <div id="display-session-code" class="display-session-code"></div>
       </div>
       <div class="team-grid" id="display-team-grid"></div>
     </div>
@@ -62,12 +60,20 @@
         
         <p id="display-round-instructions" class="round-instructions"></p>
       </div>
+      <div class="corner-qr">
+        <div id="display-corner-qr-round-intro" class="corner-qr-code"></div>
+        <div class="corner-qr-label">Scan to re-join</div>
+      </div>
     </div>
   </div>
 
   <!-- Question State -->
   <div id="display-question" class="display-state">
     <div class="question-screen">
+      <div class="corner-qr">
+        <div id="display-corner-qr-question" class="corner-qr-code"></div>
+        <div class="corner-qr-label">Scan to re-join</div>
+      </div>
       <div class="q-header">
         <div class="q-header-left">
           <span id="display-round-name" class="round-badge">Round 1</span>

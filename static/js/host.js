@@ -233,7 +233,7 @@ function handleState(state) {
   document.getElementById('state-label').textContent = stateLabel(state.state);
 
   // Team list (sidebar)
-  renderTeamList(state.teams, state.answers);
+  renderTeamList(state.teams, state.leaderboard);
 
   switch(state.state) {
     case 'lobby':       renderLobby(state); break;
@@ -250,11 +250,27 @@ function stateLabel(s) {
            leaderboard:'Leaderboard', ended:'Quiz Ended' }[s] || s;
 }
 
-function renderTeamList(teams, answers) {
+function renderTeamList(teams, leaderboard) {
   const list = document.getElementById('team-list');
-  list.innerHTML = teams.map(t => `
+  if (!teams || teams.length === 0) {
+    list.innerHTML = '';
+    return;
+  }
+
+  // Create lookup for scores from leaderboard
+  const scoreMap = new Map((leaderboard || []).map(entry => [entry.team_id, entry.total_score]));
+
+  // Build items with score, sorted by score descending (with secondary tie-break on name)
+  const sortedTeams = teams.map(t => ({
+    id: t.id,
+    name: t.name,
+    score: scoreMap.has(t.id) ? scoreMap.get(t.id) : (t.score || 0)
+  })).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  list.innerHTML = sortedTeams.map(t => `
     <div class="team-item">
       <span>${escHtml(t.name)}</span>
+      <span class="team-score">${t.score} pts</span>
     </div>
   `).join('');
 }
@@ -498,6 +514,38 @@ function renderReveal(state) {
       </tr>
     `;
   });
+
+  renderNextPreview(state);
+}
+
+function renderNextPreview(state) {
+  const el = document.getElementById('host-next-preview');
+  if (!el) return;
+
+  if (state.next_is_end) {
+    el.innerHTML = `<div class="next-preview-label">Coming up</div><div class="next-preview-body">Last question of the quiz</div>`;
+    return;
+  }
+
+  if (state.next_is_new_round) {
+    el.innerHTML = `
+      <div class="next-preview-label">Coming up — Round ${state.next_round_index + 1}: ${escHtml(state.next_round_name)}</div>
+      ${state.next_round_instructions ? `<div class="next-preview-body">${escHtml(state.next_round_instructions)}</div>` : ''}
+    `;
+    return;
+  }
+
+  const q = state.next_question;
+  if (!q) return;
+  el.innerHTML = `
+    <div class="next-preview-label">Coming up — Round ${state.next_round_index + 1} · Q${state.next_question_index + 1}/${state.total_questions}</div>
+    <div class="next-preview-body">
+      <span class="next-preview-type">${qtypeLabel(q.type)}</span>
+      <div class="next-preview-text">${escHtml(q.text)}</div>
+      <div class="next-preview-answer">${correctAnswerHTML(q)}</div>
+      ${q.image ? `<img class="next-preview-img" src="${escHtml(q.image)}" alt="">` : ''}
+    </div>
+  `;
 }
 
 function correctAnswerHTML(q) {

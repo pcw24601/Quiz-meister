@@ -4,11 +4,22 @@ let sessionId = null;
 let ws = null;
 let timerInterval = null;
 let lastTimerDuration = 30;
-let qrRendered = false;
+let joinUrlPromise = null;
+const qrRenderedContainers = new Set();
 let leaderboardRevealTimer = null;
+let currentDisplayQuestionKey = null;
+let displayOrderItems = [];
 
 const LETTERS = ['A','B','C','D','E','F','G','H'];
 const COLORS = ['#3b82f6','#ef4444','#22c55e','#f97316','#8b5cf6','#06b6d4','#ec4899','#eab308'];
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 // ── URL params ─────────────────────────────────────────────────────────────
 
@@ -42,7 +53,20 @@ document.getElementById('btn-connect-display').addEventListener('click', () => {
 
 function enterDisplay() {
   showScreen('screen-display');
+  initJoinUrl();
   connectWS();
+}
+
+// ── Join URL ────────────────────────────────────────────────────────────────
+
+function initJoinUrl() {
+  if (!joinUrlPromise) {
+    joinUrlPromise = fetch('/api/config')
+      .then(r => r.json())
+      .then(cfg => `${cfg.player_url}?session=${sessionId}`)
+      .catch(() => `${location.protocol}//${location.host}/play?session=${sessionId}`);
+  }
+  return joinUrlPromise;
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -83,34 +107,27 @@ function handleState(state) {
 
 // ── Lobby ──────────────────────────────────────────────────────────────────────
 
+function renderJoinQR(container, size) {
+  if (!container || qrRenderedContainers.has(container.id)) return;
+  qrRenderedContainers.add(container.id);
+  initJoinUrl().then(joinUrl => {
+    new QRCode(container, {
+      text: joinUrl,
+      width: size,
+      height: size,
+      colorDark: '#0f172a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  });
+}
+
 function renderLobby(state) {
   showState('display-lobby');
   document.getElementById('display-quiz-title-lobby').textContent = state.quiz_title;
+  document.getElementById('display-session-code').textContent = sessionId;
 
-  // QR code (only render once)
-  if (!qrRendered) {
-    fetch('/api/config').then(r => r.json()).then(cfg => {
-      const joinUrl = `${cfg.player_url}?session=${sessionId}`;
-      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-      new QRCode(document.getElementById('display-qr'), {
-        text: joinUrl,
-        width: 200,
-        height: 200,
-        colorDark: '#0f172a',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
-    }).catch(() => {
-      const joinUrl = `${location.protocol}//${location.host}/play?session=${sessionId}`;
-      document.getElementById('display-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-      new QRCode(document.getElementById('display-qr'), {
-        text: joinUrl, width: 200, height: 200,
-        colorDark: '#0f172a', colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
-      });
-    });
-    qrRendered = true;
-  }
+  renderJoinQR(document.getElementById('display-qr'), 420);
 
   // Team grid
   const grid = document.getElementById('display-team-grid');
@@ -150,6 +167,8 @@ function renderRoundIntro(state) {
   } else {
     imgWrap.classList.add('hidden');
   }
+
+  renderJoinQR(document.getElementById('display-corner-qr-round-intro'), 120);
 }
 
 // ── Question ───────────────────────────────────────────────────────────────────
@@ -186,9 +205,13 @@ function renderQuestion(state) {
     `).join('');
     optEl.style.display = 'grid';
   } else if (q.type === 'order') {
-    optEl.innerHTML = (q.items || []).map((item, i) => `
+    const key = `${state.round_index}:${state.question_index}:${state.timer_ends_at}`;
+    if (key !== currentDisplayQuestionKey) {
+      currentDisplayQuestionKey = key;
+      displayOrderItems = shuffleArray([...(q.items || [])]);
+    }
+    optEl.innerHTML = (displayOrderItems || []).map((item) => `
       <div class="display-option">
-        <div class="display-option-letter">${i+1}</div>
         <span>${escHtml(item)}</span>
       </div>
     `).join('');
@@ -217,6 +240,8 @@ function renderQuestion(state) {
 
   // Answer progress bar
   updateAnswerBar(state.answered_count, state.total_teams);
+
+  renderJoinQR(document.getElementById('display-corner-qr-question'), 120);
 }
 
 function startTimerDisplay(timerEndsAt, duration) {

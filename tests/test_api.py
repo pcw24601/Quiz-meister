@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 import server
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 client = TestClient(server.app)
 
@@ -24,34 +28,32 @@ def test_list_quizzes_with_path():
     assert any('example.yaml' in f or f.endswith('/example.yaml') or f.endswith('\\example.yaml') for f in data['files'])
 
 
-def test_load_gpc_2026_quiz():
+def test_load_example_quiz():
     import quiz_loader
-    import os
-    path = os.path.abspath('GCP_2026_quiz/gpc-2026.yaml')
+    path = str(REPO_ROOT / 'quizzes' / 'example.yaml')
     quiz = quiz_loader.load_quiz(path)
-    assert quiz['title'] == 'GPC_2026'
-    assert len(quiz['rounds']) == 10
-    
-    # Check answer_info on Old Testament Q1
-    ot_round = [r for r in quiz['rounds'] if r['name'] == 'Old Testament'][0]
-    q1 = ot_round['questions'][0]
+    assert quiz['title'] == 'General Knowledge Quiz Night'
+    assert len(quiz['rounds']) == 4
+
+    # Check first_letter question in Quickfire round
+    quickfire = [r for r in quiz['rounds'] if r['name'] == 'Quickfire'][0]
+    q1 = quickfire['questions'][0]
     assert q1['type'] == 'first_letter'
-    assert q1['answer'] == 'E'
-    assert q1['answer_info'] == 'Ezekiel'
+    assert q1['answer'] == 'H'
+    assert q1['note'] == 'Water = H2O'
 
-    # Check instructions on Say what?
-    say_what = [r for r in quiz['rounds'] if 'Say what' in r['name']][0]
-    assert '"Who wrote \'Alice in Wonderland\'?"' in say_what['instructions']
+    # Check instructions on Geography round
+    geography = [r for r in quiz['rounds'] if r['name'] == 'Geography'][0]
+    assert 'Test your knowledge of countries' in geography['instructions']
 
 
-def test_create_session_gpc_2026():
-    import os
-    path = os.path.abspath('GCP_2026_quiz/gpc-2026.yaml')
+def test_create_session_example_quiz():
+    path = str(REPO_ROOT / 'quizzes' / 'example.yaml')
     res = client.post('/api/sessions', json={'quiz_file': path, 'bonus_points': 5})
     assert res.status_code == 200
     data = res.json()
     assert 'session_id' in data
-    assert data['quiz_title'] == 'GPC_2026'
+    assert data['quiz_title'] == 'General Knowledge Quiz Night'
 
 
 def test_quiz_loader_fallback_over_escaped_quotes(tmp_path):
@@ -166,6 +168,47 @@ def test_upload_image_invalid_extension(tmp_path):
     assert 'Unsupported image type' in res.json()['detail']
 
 
+def test_upload_image_preserves_original_filename(tmp_path):
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    files = {'file': ('my_photo.jpg', b'img-bytes', 'image/jpeg')}
+    data = {'quiz_file': str(quiz_file), 'original_filename': 'my_photo.jpg'}
+    res = client.post('/api/quizzes/upload-image', files=files, data=data)
+    assert res.status_code == 200
+    assert res.json()['path'] == 'images/my_photo.jpg'
+
+
+def test_upload_image_disambiguation(tmp_path):
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    # First upload
+    f1 = {'file': ('photo.jpg', b'v1', 'image/jpeg')}
+    d1 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r1 = client.post('/api/quizzes/upload-image', files=f1, data=d1)
+    assert r1.json()['path'] == 'images/photo.jpg'
+    # Duplicate upload
+    f2 = {'file': ('photo.jpg', b'v2', 'image/jpeg')}
+    d2 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r2 = client.post('/api/quizzes/upload-image', files=f2, data=d2)
+    assert r2.json()['path'] == 'images/photo_1.jpg'
+    # Third upload
+    f3 = {'file': ('photo.jpg', b'v3', 'image/jpeg')}
+    d3 = {'quiz_file': str(quiz_file), 'original_filename': 'photo.jpg'}
+    r3 = client.post('/api/quizzes/upload-image', files=f3, data=d3)
+    assert r3.json()['path'] == 'images/photo_2.jpg'
+
+
+def test_upload_image_resized_suffix(tmp_path):
+    """PNG converted to JPEG by the browser should get a _resized suffix."""
+    quiz_file = tmp_path / "sample.yaml"
+    quiz_file.write_text('title: "Sample"\nrounds: []\n', encoding="utf-8")
+    files = {'file': ('logo.jpg', b'img-bytes', 'image/jpeg')}
+    data = {'quiz_file': str(quiz_file), 'original_filename': 'logo.png'}
+    res = client.post('/api/quizzes/upload-image', files=files, data=data)
+    assert res.status_code == 200
+    assert res.json()['path'] == 'images/logo_resized.jpg'
+
+
 def test_resolve_session_image_url():
     from app import _resolve_session_image_url
     # None and empty
@@ -271,3 +314,171 @@ rounds:
 
 
 
+
+
+def test_restart_question_reruns_in_place_for_later_round(tmp_path):
+    quiz_yaml = """title: "Restart Test"
+rounds:
+  - name: "Round 1"
+    questions:
+      - type: multiple_choice
+        text: "Round 1 Q1"
+        options: ["A", "B"]
+        correct: 0
+  - name: "Round 2"
+    questions:
+      - type: multiple_choice
+        text: "Round 2 Q1"
+        options: ["A", "B"]
+        correct: 0
+      - type: multiple_choice
+        text: "Round 2 Q2"
+        options: ["A", "B"]
+        correct: 0
+"""
+    q_file = tmp_path / "restart_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    assert res.status_code == 200
+    session_id = res.json()['session_id']
+    host_secret = res.json()['host_secret']
+
+    team_res = client.post(f'/api/sessions/{session_id}/join', json={'team_name': 'Team Alpha', 'browser_id': 'b1'})
+    team_id = team_res.json()['team_id']
+
+    def do_action(action):
+        r = client.post(f'/api/sessions/{session_id}/action', json={'host_secret': host_secret, 'action': action})
+        assert r.status_code == 200
+        return r.json()
+
+    # Walk through round 1 into round 2, question 1 (index 0)
+    do_action('start_round')
+    do_action('start_question')
+    do_action('reveal_answer')
+    do_action('next_round')
+    started = do_action('start_question')
+    assert started['state'] == 'question'
+
+    # Team answers Round 2 Q1
+    ans_res = client.post(f'/api/sessions/{session_id}/answer', json={'team_id': team_id, 'answer_data': [0]})
+    assert ans_res.status_code == 200
+
+    reveal = do_action('reveal_answer')
+    assert reveal['state'] == 'answer_reveal'
+
+    session_before = client.get(f'/api/sessions/{session_id}').json()
+    timer_before = session_before['timer_ends_at']
+
+    restarted = do_action('restart_question')
+    assert restarted['state'] == 'question'
+
+    session_after = client.get(f'/api/sessions/{session_id}').json()
+    assert session_after['current_round_index'] == 1
+    assert session_after['current_question_index'] == 0
+    assert session_after['timer_ends_at'] != timer_before
+
+    import db
+    answers = db.get_answers(session_id, 1, 0)
+    assert answers == []
+
+
+def test_next_question_preview_across_round_boundary(tmp_path):
+    quiz_yaml = """title: "Next Preview Test"
+rounds:
+  - name: "Round 1"
+    questions:
+      - type: multiple_choice
+        text: "Round 1 Q1"
+        options: ["A", "B"]
+        correct: 0
+  - name: "Round 2"
+    instructions: "Round 2 instructions"
+    questions:
+      - type: multiple_choice
+        text: "Round 2 Q1"
+        options: ["A", "B"]
+        correct: 0
+"""
+    q_file = tmp_path / "next_preview_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+    host_secret = res.json()['host_secret']
+
+    def do_action(action):
+        r = client.post(f'/api/sessions/{session_id}/action', json={'host_secret': host_secret, 'action': action})
+        assert r.status_code == 200
+
+    with client.websocket_connect(f'/ws/{session_id}') as ws:
+        ws.receive_json()  # initial lobby state
+
+        do_action('start_round')
+        ws.receive_json()  # round_intro
+
+        do_action('start_question')
+        state = ws.receive_json()
+
+        assert state['state'] == 'question'
+        assert state['round_index'] == 0
+        assert state['question_index'] == 0
+        assert state['next_is_new_round'] is True
+        assert state['next_is_end'] is False
+        assert state['next_round_index'] == 1
+        assert state['next_round_name'] == 'Round 2'
+        assert state['next_round_instructions'] == 'Round 2 instructions'
+        assert state['next_question_index'] == 0
+        assert state['next_question']['text'] == 'Round 2 Q1'
+
+        do_action('reveal_answer')
+        ws.receive_json()
+
+        do_action('start_question')  # round over -> leaderboard
+        ws.receive_json()
+
+        do_action('next_round')
+        ws.receive_json()  # round_intro for Round 2
+
+        do_action('start_question')  # Round 2 Q1
+        state = ws.receive_json()
+
+        assert state['round_index'] == 1
+        assert state['question_index'] == 0
+        assert state['next_is_end'] is True
+        assert state['next_question'] is None
+
+
+def test_session_id_is_five_digit_number(tmp_path):
+    quiz_yaml = 'title: "Session ID Test"\nrounds: []\n'
+    q_file = tmp_path / "sid_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res1 = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    res2 = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    assert res1.status_code == 200 and res2.status_code == 200
+
+    sid1 = res1.json()['session_id']
+    sid2 = res2.json()['session_id']
+
+    assert sid1 != sid2
+    for sid in (sid1, sid2):
+        assert sid.isdigit()
+        assert len(sid) == 5
+        assert 10000 <= int(sid) <= 99999
+
+
+def test_get_session_does_not_leak_host_secret_or_quiz_data(tmp_path):
+    quiz_yaml = 'title: "Leak Test"\nrounds: []\n'
+    q_file = tmp_path / "leak_test.yaml"
+    q_file.write_text(quiz_yaml, encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+
+    get_res = client.get(f'/api/sessions/{session_id}')
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert 'host_secret' not in data
+    assert 'quiz_data' not in data
+    assert data['id'] == session_id

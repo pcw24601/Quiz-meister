@@ -1,0 +1,148 @@
+title: "General Knowledge Quiz Night"
+
+rounds:
+  - name: "Geography"
+    questions:
+      - type: multiple_choice
+        text: "What is the capital of Australia?"
+        options:
+          - "Sydney"
+          - "Melbourne"
+          - "Canberra"
+          - "Brisbane"
+        correct: 2
+      - type: multiple_choice
+        text: "Which country has the largest land area in the world?"
+        options:
+          - "Canada"
+          - "Russia"
+          - "China"
+          - "United States"
+        correct: 1
+      - type: select_many
+        text: "Which of the following are countries in Scandinavia?"
+        time: 40
+        points: 2
+        options:
+          - "Norway"
+          - "Finland"
+          - "Sweden"
+          - "Denmark"
+          - "Iceland"
+        correct: [0, 2, 3]
+      - type: order
+        text: "Put these rivers in order from longest to shortest"
+        time: 45
+        points: 2
+        items:
+          - "Nile"
+          - "Amazon"
+          - "Yangtze"
+          - "Mississippi"
+      - type: numeric
+        text: "How many countries are there in Africa?"
+        answer: 54
+        tolerance: 3
+  - name: "Science & Nature"
+    questions:
+      - type: multiple_choice
+        text: "What is the chemical symbol for gold?"
+        time: 20
+        options:
+          - "Ag"
+          - "Au"
+          - "Fe"
+          - "Gd"
+        correct: 1
+      - type: multiple_choice
+        text: "How many bones are in the adult human body?"
+        time: 25
+        options:
+          - "196"
+          - "206"
+          - "216"
+          - "226"
+        correct: 1
+      - type: numeric
+        text: "What is the speed of light in km/s? (nearest thousand)"
+        points: 2
+        answer: 300000
+        tolerance: 5000
+      - type: select_many
+        text: "Which of these are noble gases?"
+        time: 35
+        points: 2
+        options:
+          - "Helium"
+          - "Nitrogen"
+          - "Argon"
+          - "Oxygen"
+          - "Neon"
+        correct: [0, 2, 4]
+      - type: order
+        text: "Order these planets from closest to furthest from the Sun"
+        points: 2
+        items:
+          - "Mercury"
+          - "Venus"
+          - "Earth"
+          - "Mars"
+  - name: "Pop Culture"
+    questions:
+      - type: multiple_choice
+        text: "Which film won the first Academy Award for Best Picture?"
+        options:
+          - "Wings"
+          - "All Quiet on the Western Front"
+          - "Sunrise"
+          - "The Jazz Singer"
+        correct: 0
+      - type: picture
+        text: "Which famous landmark is this?"
+        points: 2
+        options:
+          - "Statue of Liberty"
+          - "Eiffel Tower"
+          - "Colosseum"
+          - "Leaning Tower of Pisa"
+        correct: 2
+        image: "https://images.pexels.com/photos/532263/pexels-photo-532263.jpeg?auto=compress&cs=tinysrgb&w=600"
+      - type: multiple_choice
+        text: "Who painted the Mona Lisa?"
+        time: 20
+        options:
+          - "Michelangelo"
+          - "Raphael"
+          - "Leonardo da Vinci"
+          - "Caravaggio"
+        correct: 2
+      - type: numeric
+        text: "In what year was the first iPhone released?"
+        time: 20
+        answer: 2007
+      - type: multiple_choice
+        text: "Who wrote 'Pride and Prejudice'?"
+        time: 20
+        options:
+          - "Charlotte Bronte"
+          - "Jane Austen"
+          - "Mary Shelley"
+          - "Emily Bronte"
+        correct: 1
+      - type: numeric
+        text: "How many Harry Potter books are in the main series?"
+        time: 15
+        tiebreaker: true
+        answer: 7
+  - name: "Quickfire"
+    questions:
+      - type: first_letter
+        text: "What is the capital of France?"
+        time: 10
+        answer: P
+        note: "Paris"
+      - type: first_letter
+        text: "What is the largest planet in our solar system?"
+        time: 10
+        answer: J
+        note: "Jupiter"
