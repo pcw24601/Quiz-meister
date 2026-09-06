@@ -482,3 +482,20 @@ def test_get_session_does_not_leak_host_secret_or_quiz_data(tmp_path):
     assert 'host_secret' not in data
     assert 'quiz_data' not in data
     assert data['id'] == session_id
+
+
+def test_default_question_points_is_five(tmp_path):
+    import quiz_loader
+
+    # Test parser default
+    q = quiz_loader._parse_question({"type": "multiple_choice", "text": "Q?"}, 0, 0)
+    assert q["points"] == 5
+
+    # Test score_answer default
+    score = quiz_loader.score_answer({"type": "multiple_choice", "correct": 1}, [1])
+    assert score == 5
+
+    # Test numeric scoring default
+    num_scores = quiz_loader.score_numeric_round([{"team_id": "t1", "answer_data": [42]}], {"answer": 42})
+    assert num_scores.get("t1") == 5
+

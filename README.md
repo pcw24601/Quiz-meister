@@ -236,7 +236,7 @@ rounds:
 ### Optional Fields
 
 - `time` — seconds for the question timer (default: 30)
-- `points` — points for correct answer (default: 1)
+- `points` — points for correct answer (default: 5)
 - `tiebreaker` — mark as tiebreaker question (default: false)
 - `image` — URL to an image to display (for picture type)
 - `note` — hint text to display with question (not used for first_letter)
