@@ -499,3 +499,25 @@ def test_default_question_points_is_five(tmp_path):
     num_scores = quiz_loader.score_numeric_round([{"team_id": "t1", "answer_data": [42]}], {"answer": 42})
     assert num_scores.get("t1") == 5
 
+
+def test_select_many_exact_match_only():
+    import quiz_loader
+
+    q = {"type": "select_many", "options": ["A", "B", "C", "D"], "correct": [0, 2], "points": 5}
+
+    # Exact match gets full points
+    assert quiz_loader.score_answer(q, [0, 2]) == 5
+    assert quiz_loader.score_answer(q, [2, 0]) == 5
+
+    # Partial answers get 0
+    assert quiz_loader.score_answer(q, [0]) == 0
+    assert quiz_loader.score_answer(q, [2]) == 0
+
+    # Extra incorrect choices get 0
+    assert quiz_loader.score_answer(q, [0, 1, 2]) == 0
+    assert quiz_loader.score_answer(q, [1, 3]) == 0
+
+    # Empty gets 0
+    assert quiz_loader.score_answer(q, []) == 0
+
+

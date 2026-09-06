@@ -115,16 +115,14 @@ def score_answer(question: dict, answer_data: list) -> int:
         return 0
 
     elif qtype == "select_many":
+        try:
+            submitted_set = set(int(x) for x in answer_data)
+        except (ValueError, TypeError):
+            return 0
         correct_set = set(question["correct"])
-        submitted_set = set(int(x) for x in answer_data)
         if submitted_set == correct_set:
             return points
-        # partial credit: each correct selection minus each wrong selection, min 0
-        correct_hits = len(submitted_set & correct_set)
-        wrong_hits = len(submitted_set - correct_set)
-        partial = max(0, correct_hits - wrong_hits)
-        max_correct = len(correct_set)
-        return round((partial / max_correct) * points) if max_correct else 0
+        return 0
 
     elif qtype == "order":
         n = len(question["items"])
