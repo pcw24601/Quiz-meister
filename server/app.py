@@ -192,8 +192,21 @@ def _resolve_session_image_url(session_id: str, img_ref: str | None) -> str | No
     return f"/api/sessions/{session_id}/image?path={clean_path}"
 
 
-def _compute_next_question(rounds: list, ri: int, qi: int) -> dict:
+def _compute_next_question(rounds: list, ri: int, qi: int, state: str = None) -> dict:
     """Peek at what comes after the current question, for the host 'coming up' preview."""
+    if state in ("lobby", "round_intro"):
+        current_round = rounds[ri] if ri < len(rounds) else None
+        qs = current_round.get("questions", []) if current_round else []
+        return {
+            "next_question": dict(qs[0]) if qs else None,
+            "next_question_index": 0,
+            "next_round_index": ri,
+            "next_round_name": current_round["name"] if current_round else "",
+            "next_round_instructions": current_round.get("instructions") if current_round else None,
+            "next_is_new_round": False,
+            "next_is_end": False if qs else True,
+        }
+
     current_round = rounds[ri] if ri < len(rounds) else None
     total_qs = len(current_round["questions"]) if current_round else 0
 
@@ -268,7 +281,7 @@ async def _broadcast_state(session_id: str, session: dict):
 
     answered_team_ids = {a["team_id"] for a in answers_for_q}
 
-    next_info = _compute_next_question(rounds, ri, qi)
+    next_info = _compute_next_question(rounds, ri, qi, session["state"])
     if next_info["next_question"] and next_info["next_question"].get("image"):
         next_info["next_question"]["image"] = _resolve_session_image_url(
             session_id, next_info["next_question"]["image"]

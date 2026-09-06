@@ -321,6 +321,8 @@ function renderRoundIntro(state) {
   } else {
     imgWrap.classList.add('hidden');
   }
+
+  renderNextPreview(state, 'host-round-intro-next-preview');
 }
 
 document.getElementById('btn-start-round-questions').addEventListener('click', () => action('start_question'));
@@ -518,8 +520,8 @@ function renderReveal(state) {
   renderNextPreview(state);
 }
 
-function renderNextPreview(state) {
-  const el = document.getElementById('host-next-preview');
+function renderNextPreview(state, targetId = 'host-next-preview') {
+  const el = document.getElementById(targetId);
   if (!el) return;
 
   if (state.next_is_end) {
@@ -528,15 +530,27 @@ function renderNextPreview(state) {
   }
 
   if (state.next_is_new_round) {
+    const q = state.next_question;
     el.innerHTML = `
       <div class="next-preview-label">Coming up — Round ${state.next_round_index + 1}: ${escHtml(state.next_round_name)}</div>
-      ${state.next_round_instructions ? `<div class="next-preview-body">${escHtml(state.next_round_instructions)}</div>` : ''}
+      ${state.next_round_instructions ? `<div class="next-preview-body" style="margin-bottom:var(--space-2);">${escHtml(state.next_round_instructions)}</div>` : ''}
+      ${q ? `
+        <div class="next-preview-body">
+          <span class="next-preview-type">${qtypeLabel(q.type)}</span>
+          <div class="next-preview-text">Q1: ${escHtml(q.text)}</div>
+          <div class="next-preview-answer">${correctAnswerHTML(q)}</div>
+          ${q.image ? `<img class="next-preview-img" src="${escHtml(q.image)}" alt="">` : ''}
+        </div>
+      ` : ''}
     `;
     return;
   }
 
   const q = state.next_question;
-  if (!q) return;
+  if (!q) {
+    el.innerHTML = '';
+    return;
+  }
   el.innerHTML = `
     <div class="next-preview-label">Coming up — Round ${state.next_round_index + 1} · Q${state.next_question_index + 1}/${state.total_questions}</div>
     <div class="next-preview-body">

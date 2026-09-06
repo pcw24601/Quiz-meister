@@ -415,7 +415,10 @@ rounds:
         ws.receive_json()  # initial lobby state
 
         do_action('start_round')
-        ws.receive_json()  # round_intro
+        intro_state = ws.receive_json()  # round_intro
+        assert intro_state['state'] == 'round_intro'
+        assert intro_state['next_question_index'] == 0
+        assert intro_state['next_question']['text'] == 'Round 1 Q1'
 
         do_action('start_question')
         state = ws.receive_json()
@@ -438,7 +441,10 @@ rounds:
         ws.receive_json()
 
         do_action('next_round')
-        ws.receive_json()  # round_intro for Round 2
+        round2_intro = ws.receive_json()  # round_intro for Round 2
+        assert round2_intro['state'] == 'round_intro'
+        assert round2_intro['next_question_index'] == 0
+        assert round2_intro['next_question']['text'] == 'Round 2 Q1'
 
         do_action('start_question')  # Round 2 Q1
         state = ws.receive_json()
