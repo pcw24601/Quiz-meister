@@ -673,7 +673,7 @@ function renderLBList(containerId, leaderboard) {
   if (!el) return;
   el.innerHTML = (leaderboard || []).map((entry, i) => `
     <div class="lb-entry">
-      <div class="lb-rank">${i + 1}</div>
+      <div class="lb-rank">${entry.rank !== undefined ? entry.rank : i + 1}</div>
       <div class="lb-name">${escHtml(entry.name)}</div>
       <div class="lb-score">${entry.total_score}</div>
     </div>

@@ -170,4 +170,13 @@ def get_leaderboard(session_id: str) -> list[dict]:
             "total_score": score_map.get(t["id"], 0),
         })
     result.sort(key=lambda x: x["total_score"], reverse=True)
+
+    current_rank = 1
+    last_score = None
+    for i, entry in enumerate(result):
+        if entry["total_score"] != last_score:
+            current_rank = i + 1
+            last_score = entry["total_score"]
+        entry["rank"] = current_rank
+
     return result

@@ -530,11 +530,12 @@ function renderLeaderboard(state) {
   showScreen('screen-leaderboard');
   const lb = state.leaderboard || [];
   const listEl = document.getElementById('play-leaderboard');
-  const myRank = lb.findIndex(e => e.team_id === teamId) + 1;
+  const myEntry = lb.find(e => e.team_id === teamId);
+  const myRank = myEntry && myEntry.rank !== undefined ? myEntry.rank : (lb.findIndex(e => e.team_id === teamId) + 1);
 
   listEl.innerHTML = lb.map((entry, i) => `
     <div class="play-lb-entry ${entry.team_id === teamId ? 'you' : ''}">
-      <div class="play-lb-rank">${i+1}</div>
+      <div class="play-lb-rank">${entry.rank !== undefined ? entry.rank : i+1}</div>
       <div class="play-lb-name">${escHtml(entry.name)}${entry.team_id === teamId ? ' (you)' : ''}</div>
       <div class="play-lb-score">${entry.total_score}</div>
     </div>
@@ -554,7 +555,7 @@ function renderEnded(state) {
   const listEl = document.getElementById('play-final-lb');
   listEl.innerHTML = lb.map((entry, i) => `
     <div class="play-lb-entry ${entry.team_id === teamId ? 'you' : ''}">
-      <div class="play-lb-rank">${i+1}</div>
+      <div class="play-lb-rank">${entry.rank !== undefined ? entry.rank : i+1}</div>
       <div class="play-lb-name">${escHtml(entry.name)}${entry.team_id === teamId ? ' (you)' : ''}</div>
       <div class="play-lb-score">${entry.total_score}</div>
     </div>

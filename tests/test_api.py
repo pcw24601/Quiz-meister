@@ -527,3 +527,41 @@ def test_select_many_exact_match_only():
     assert quiz_loader.score_answer(q, []) == 0
 
 
+def test_leaderboard_tied_ranking(tmp_path):
+    import db
+
+    q_file = tmp_path / "tie_test.yaml"
+    q_file.write_text('title: "Tie Test"\nrounds: []\n', encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+
+    t1 = db.register_team(session_id, "Team Alpha", "b1")
+    t2 = db.register_team(session_id, "Team Beta", "b2")
+    t3 = db.register_team(session_id, "Team Gamma", "b3")
+
+    # Team Alpha gets 9, Team Beta gets 9, Team Gamma gets 6
+    db.submit_answer(session_id, t1['id'], 0, 0, [0], 9)
+    db.submit_answer(session_id, t2['id'], 0, 0, [0], 9)
+    db.submit_answer(session_id, t3['id'], 0, 0, [0], 6)
+
+    lb = db.get_leaderboard(session_id)
+    assert len(lb) == 3
+    assert lb[0]['total_score'] == 9
+    assert lb[0]['rank'] == 1
+    assert lb[1]['total_score'] == 9
+    assert lb[1]['rank'] == 1
+    assert lb[2]['total_score'] == 6
+    assert lb[2]['rank'] == 3
+
+    # Check API response
+    api_res = client.get(f'/api/sessions/{session_id}/leaderboard')
+    assert api_res.status_code == 200
+    api_lb = api_res.json()['leaderboard']
+    ranks = [entry['rank'] for entry in api_lb]
+    scores = [entry['total_score'] for entry in api_lb]
+    assert scores == [9, 9, 6]
+    assert ranks == [1, 1, 3]
+
+
+
