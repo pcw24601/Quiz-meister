@@ -415,7 +415,10 @@ rounds:
         ws.receive_json()  # initial lobby state
 
         do_action('start_round')
-        ws.receive_json()  # round_intro
+        intro_state = ws.receive_json()  # round_intro
+        assert intro_state['state'] == 'round_intro'
+        assert intro_state['next_question_index'] == 0
+        assert intro_state['next_question']['text'] == 'Round 1 Q1'
 
         do_action('start_question')
         state = ws.receive_json()
@@ -438,7 +441,10 @@ rounds:
         ws.receive_json()
 
         do_action('next_round')
-        ws.receive_json()  # round_intro for Round 2
+        round2_intro = ws.receive_json()  # round_intro for Round 2
+        assert round2_intro['state'] == 'round_intro'
+        assert round2_intro['next_question_index'] == 0
+        assert round2_intro['next_question']['text'] == 'Round 2 Q1'
 
         do_action('start_question')  # Round 2 Q1
         state = ws.receive_json()
@@ -482,3 +488,80 @@ def test_get_session_does_not_leak_host_secret_or_quiz_data(tmp_path):
     assert 'host_secret' not in data
     assert 'quiz_data' not in data
     assert data['id'] == session_id
+
+
+def test_default_question_points_is_five(tmp_path):
+    import quiz_loader
+
+    # Test parser default
+    q = quiz_loader._parse_question({"type": "multiple_choice", "text": "Q?"}, 0, 0)
+    assert q["points"] == 5
+
+    # Test score_answer default
+    score = quiz_loader.score_answer({"type": "multiple_choice", "correct": 1}, [1])
+    assert score == 5
+
+    # Test numeric scoring default
+    num_scores = quiz_loader.score_numeric_round([{"team_id": "t1", "answer_data": [42]}], {"answer": 42})
+    assert num_scores.get("t1") == 5
+
+
+def test_select_many_exact_match_only():
+    import quiz_loader
+
+    q = {"type": "select_many", "options": ["A", "B", "C", "D"], "correct": [0, 2], "points": 5}
+
+    # Exact match gets full points
+    assert quiz_loader.score_answer(q, [0, 2]) == 5
+    assert quiz_loader.score_answer(q, [2, 0]) == 5
+
+    # Partial answers get 0
+    assert quiz_loader.score_answer(q, [0]) == 0
+    assert quiz_loader.score_answer(q, [2]) == 0
+
+    # Extra incorrect choices get 0
+    assert quiz_loader.score_answer(q, [0, 1, 2]) == 0
+    assert quiz_loader.score_answer(q, [1, 3]) == 0
+
+    # Empty gets 0
+    assert quiz_loader.score_answer(q, []) == 0
+
+
+def test_leaderboard_tied_ranking(tmp_path):
+    import db
+
+    q_file = tmp_path / "tie_test.yaml"
+    q_file.write_text('title: "Tie Test"\nrounds: []\n', encoding="utf-8")
+
+    res = client.post('/api/sessions', json={'quiz_file': str(q_file)})
+    session_id = res.json()['session_id']
+
+    t1 = db.register_team(session_id, "Team Alpha", "b1")
+    t2 = db.register_team(session_id, "Team Beta", "b2")
+    t3 = db.register_team(session_id, "Team Gamma", "b3")
+
+    # Team Alpha gets 9, Team Beta gets 9, Team Gamma gets 6
+    db.submit_answer(session_id, t1['id'], 0, 0, [0], 9)
+    db.submit_answer(session_id, t2['id'], 0, 0, [0], 9)
+    db.submit_answer(session_id, t3['id'], 0, 0, [0], 6)
+
+    lb = db.get_leaderboard(session_id)
+    assert len(lb) == 3
+    assert lb[0]['total_score'] == 9
+    assert lb[0]['rank'] == 1
+    assert lb[1]['total_score'] == 9
+    assert lb[1]['rank'] == 1
+    assert lb[2]['total_score'] == 6
+    assert lb[2]['rank'] == 3
+
+    # Check API response
+    api_res = client.get(f'/api/sessions/{session_id}/leaderboard')
+    assert api_res.status_code == 200
+    api_lb = api_res.json()['leaderboard']
+    ranks = [entry['rank'] for entry in api_lb]
+    scores = [entry['total_score'] for entry in api_lb]
+    assert scores == [9, 9, 6]
+    assert ranks == [1, 1, 3]
+
+
+

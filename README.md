@@ -227,7 +227,7 @@ rounds:
 | Type | Description | Key Fields |
 |------|-------------|------------|
 | `multiple_choice` | One correct answer | `options`, `correct` (index) |
-| `select_many` | Multiple correct answers (partial credit) | `options`, `correct` (array of indices) |
+| `select_many` | Multiple correct answers (exact match) | `options`, `correct` (array of indices) |
 | `order` | Drag to reorder items | `items` (correct order) |
 | `numeric` | Closest number wins | `answer`, `tolerance` (optional) |
 | `picture` | Like multiple choice with image | `options`, `correct`, `image` (URL) |
@@ -236,7 +236,7 @@ rounds:
 ### Optional Fields
 
 - `time` — seconds for the question timer (default: 30)
-- `points` — points for correct answer (default: 1)
+- `points` — points for correct answer (default: 5)
 - `tiebreaker` — mark as tiebreaker question (default: false)
 - `image` — URL to an image to display (for picture type)
 - `note` — hint text to display with question (not used for first_letter)

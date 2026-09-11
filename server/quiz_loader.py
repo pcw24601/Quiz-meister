@@ -56,7 +56,7 @@ def _parse_question(q: dict, ri: int, qi: int) -> dict:
         "text": str(q.get("text", "")),
         "image": q.get("image"),
         "time": int(q.get("time", 30)),
-        "points": int(q.get("points", 1)),
+        "points": int(q.get("points", 5)),
         "tiebreaker": bool(q.get("tiebreaker", False)),
         "answer_info": None,
     }
@@ -107,7 +107,7 @@ def _parse_question(q: dict, ri: int, qi: int) -> dict:
 def score_answer(question: dict, answer_data: list) -> int:
     """Score a submitted answer against the correct answer. Returns points earned."""
     qtype = question["type"]
-    points = question.get("points", 1)
+    points = question.get("points", 5)
 
     if qtype in ("multiple_choice", "picture"):
         if answer_data and int(answer_data[0]) == question["correct"]:
@@ -115,16 +115,14 @@ def score_answer(question: dict, answer_data: list) -> int:
         return 0
 
     elif qtype == "select_many":
+        try:
+            submitted_set = set(int(x) for x in answer_data)
+        except (ValueError, TypeError):
+            return 0
         correct_set = set(question["correct"])
-        submitted_set = set(int(x) for x in answer_data)
         if submitted_set == correct_set:
             return points
-        # partial credit: each correct selection minus each wrong selection, min 0
-        correct_hits = len(submitted_set & correct_set)
-        wrong_hits = len(submitted_set - correct_set)
-        partial = max(0, correct_hits - wrong_hits)
-        max_correct = len(correct_set)
-        return round((partial / max_correct) * points) if max_correct else 0
+        return 0
 
     elif qtype == "order":
         n = len(question["items"])
@@ -157,7 +155,7 @@ def score_numeric_round(teams_answers: list[dict], question: dict) -> dict[str, 
     return {team_id: score}. Closest answer wins full points; ties share.
     """
     correct = float(question["answer"])
-    points = question.get("points", 1)
+    points = question.get("points", 5)
     tolerance = question.get("tolerance")
 
     distances = []

@@ -809,7 +809,7 @@ function renderQuestionCard(q, idx) {
           </div>
           <div class="form-group">
             <label>Points</label>
-            <input type="number" value="${q.points || 1}" oninput="updateQuestion(${idx}, 'points', parseInt(this.value))">
+            <input type="number" value="${q.points || 5}" oninput="updateQuestion(${idx}, 'points', parseInt(this.value))">
           </div>
         </div>
         <div class="form-row">
@@ -934,7 +934,7 @@ function addQuestion() {
     type: 'multiple_choice',
     text: '',
     time: 30,
-    points: 1,
+    points: 5,
     tiebreaker: false,
     options: ['', '', '', ''],
     correct: 0,
@@ -1444,7 +1444,7 @@ function generateYAML() {
       yaml += `        text: "${escapeYamlStr(q.text || '')}"\n`;
 
       if (q.time !== 30 && q.time !== undefined && q.time !== null) yaml += `        time: ${q.time}\n`;
-      if (q.points !== 1 && q.points !== undefined && q.points !== null) yaml += `        points: ${q.points}\n`;
+      if (q.points !== 5 && q.points !== undefined && q.points !== null) yaml += `        points: ${q.points}\n`;
       if (q.tiebreaker) yaml += `        tiebreaker: true\n`;
 
       if (q.type === 'multiple_choice' || q.type === 'picture' || q.type === 'select_many') {
@@ -1586,7 +1586,7 @@ function parseYAML(text) {
           type: line.slice(7).trim(),
           text: '',
           time: 30,
-          points: 1,
+          points: 5,
           tiebreaker: false,
           answer_info: ''
         };

@@ -423,7 +423,7 @@ function renderLeaderboard(state) {
   const listEl = document.getElementById('display-lb-list');
   listEl.innerHTML = lb.map((entry, i) => `
     <div class="display-lb-entry" data-rank="${lb.length - i}">
-      <div class="lb-rank-big">${i+1}</div>
+      <div class="lb-rank-big">${entry.rank !== undefined ? entry.rank : i+1}</div>
       <div class="lb-name-big">${escHtml(entry.name)}</div>
       <div class="lb-score-big">${entry.total_score}</div>
     </div>
@@ -445,7 +445,7 @@ function renderEnded(state) {
   const listEl = document.getElementById('display-final-lb');
   listEl.innerHTML = lb.map((entry, i) => `
     <div class="display-lb-entry" data-rank="${lb.length - i}">
-      <div class="lb-rank-big">${i+1}</div>
+      <div class="lb-rank-big">${entry.rank !== undefined ? entry.rank : i+1}</div>
       <div class="lb-name-big">${escHtml(entry.name)}</div>
       <div class="lb-score-big">${entry.total_score}</div>
     </div>
