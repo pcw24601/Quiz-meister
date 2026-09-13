@@ -36,7 +36,7 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/quiz-meister.git
+git clone https://github.com/pcw2460/quiz-meister.git
 cd quiz-meister
 
 # Create virtual environment
