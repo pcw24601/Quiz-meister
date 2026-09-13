@@ -3,19 +3,11 @@
 
 cd "$(dirname "$0")"
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+if command -v uv &>/dev/null; then
+    uv run python start.py
+else
+    echo "Error: uv is not installed or not found on PATH."
+    echo "Please install uv (https://docs.astral.sh/uv/):"
+    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+    exit 1
 fi
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies if needed
-if ! python -c "import fastapi" 2>/dev/null; then
-    echo "Installing dependencies..."
-    pip install -r requirements.txt
-fi
-
-python start.py
